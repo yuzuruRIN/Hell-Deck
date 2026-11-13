@@ -26,7 +26,7 @@ class Game {
       mana: 0, maxMana: bonusMana || 0, fatigue: 0,
       relics: d.relics || [], spellsThisTurn: 0,
       deaths: 0, spellsCast: 0, bonus: d.bonus || {},
-      shuffled: 0, played: [],
+      shuffled: 0, played: [], spellDisc: 0,
     });
     const b = cfg.boss;
     this.players = [
@@ -74,6 +74,8 @@ class Game {
 
   /* ---------------- เริ่มเกม / เทิร์น ---------------- */
   start() {
+    // สุ่มว่าใครเริ่มก่อน — คนเริ่มหลังได้ Hell Coin (มานา +1 เฉพาะเทิร์นที่ใช้)
+    this.first = Math.random() < 0.5 ? 0 : 1;
     const pb = this.P(0).bonus;
     this.draw(0, 3 + (this.has(0, 'r_grimoire') ? 2 : 0) + (pb.draw || 0));
     this.draw(1, 4);
@@ -87,7 +89,10 @@ class Game {
       if (this.has(o, 'r_kit')) this.addHand(o, rnd(POOL_TRAPS));
       if (this.has(o, 'r_crown')) { this.summon(o, 'p_guard'); this.summon(o, 'p_guard'); }
     }
-    this.startTurn(0);
+    const second = 1 - this.first;
+    this.addHand(second, 'hell_coin');
+    this.log(`🎲 ${this.P(this.first).name} เริ่มก่อน — ${this.P(second).name} ได้ Hell Coin`, 'hell_coin');
+    this.startTurn(this.first);
   }
 
   startTurn(o) {
@@ -97,6 +102,7 @@ class Game {
     p.maxMana = Math.min(MAX_MANA, p.maxMana + 1);
     p.mana = p.maxMana;
     p.spellsThisTurn = 0;
+    p.spellDisc = 0;
     p.board.forEach(m => { m.sleeping = false; m.attacks = m.kw.windfury ? 2 : 1; });
     this.draw(o, 1);
     p.board.slice().forEach(m => { if (this.alive(m) && m.card.onTurnStart) m.card.onTurnStart(this, o, m); });
@@ -130,16 +136,28 @@ class Game {
         this.draw(o, 1);
         continue;
       }
-      if (p.hand.length >= MAX_HAND) { this.log(`🔥 มือเต็ม! ${h.card.name} ถูกเผาทิ้ง`, h.id); continue; }
-      p.hand.push(h);
+      this.toHand(o, h);
     }
   }
 
   addHand(o, id, costDelta = 0) {
     if (!id) return;
+    this.toHand(o, this.mkCard(id, costDelta));
+  }
+  /* ---------------- มือเต็ม / การ์ดล้นมือ ----------------
+     ทุกการ์ดที่จะเข้ามือผ่านตรงนี้ — ถ้ามือเต็ม (10 ใบ) การ์ดใบนั้นถูกเผาทิ้ง
+     และหายไปตลอดการต่อสู้นี้ (ไม่กระทบเด็คของรัน) */
+  toHand(o, h) {
     const p = this.P(o);
-    if (p.hand.length >= MAX_HAND) return;
-    p.hand.push(this.mkCard(id, costDelta));
+    if (p.hand.length >= MAX_HAND) { this.burn(o, h); return false; }
+    p.hand.push(h);
+    return true;
+  }
+  burn(o, h) {
+    const p = this.P(o);
+    p.burned = (p.burned || 0) + 1;
+    this.log(`🔥 มือ ${p.name} เต็ม! ${h.card.name} ถูกเผาทิ้ง`, h.id);
+    this.ui.onBurn && this.ui.onBurn(o, h);
   }
 
   cost(o, h) {
@@ -148,6 +166,12 @@ class Game {
     if (this.has(o, 'r_goldcard')) v -= 2;
     if (c.type === 'trap' && this.has(o, 'r_kit')) v -= 1;
     if (c.type === 'spell' && this.has(o, 'r_feather') && this.P(o).spellsThisTurn === 0) v -= 1;
+    if (c.type === 'spell') {
+      // ออร่าบนบอร์ด: ลดค่าร่ายเวทฝ่ายเรา / เพิ่มค่าร่ายเวทของศัตรู
+      v -= this.mins(o).filter(m => m.card.auraSpellDisc).length;
+      v += this.mins(this.opp(o)).filter(m => m.card.auraEnemySpellTax).length;
+      v -= this.P(o).spellDisc;
+    }
     return Math.max(0, v);
   }
 
@@ -177,7 +201,8 @@ class Game {
   }
   canPlay(o, h) { return !this.over && this.whyNot(o, h) === ''; }
 
-  play(o, uid, target) {
+  // pos = ตำแหน่งบนบอร์ดที่จะวางมินเนี่ยน (ไม่ระบุ = ขวาสุด)
+  play(o, uid, target, pos) {
     const p = this.P(o);
     const i = p.hand.findIndex(h => h.uid === uid);
     if (i < 0) return false;
@@ -192,14 +217,16 @@ class Game {
     this.ui.onPlay && this.ui.onPlay(o, h);
 
     if (c.type === 'minion') {
-      const m = this.summon(o, c.id);
+      const m = this.summon(o, c.id, pos);
       this.applyBonus(m, h);
       if (m && c.battlecry) c.battlecry(this, o, target, m);
+      if (m) this.reverseCombos(o, m);
       this.cleanup();
       if (m && !this.over && this.alive(m)) { this.fireTraps(this.opp(o), 'play_minion', { minion: m }); this.cleanup(); }
     } else if (c.type === 'spell') {
       p.spellsThisTurn++;
       p.spellsCast++;
+      p.spellDisc = 0;   // ส่วนลด "เวทใบถัดไป" ใช้ไปแล้ว
       const ev = { card: c, caster: o, cancel: false };
       this.fireTraps(this.opp(o), 'spell', ev);
       if (ev.cancel) {
@@ -219,6 +246,19 @@ class Game {
     }
     this.cleanup();
     return true;
+  }
+
+  // คอมโบย้อนกลับ: มินเนี่ยนบนบอร์ดที่มี m เป็นคู่หู ทำคอมโบของตัวเอง
+  // (ข้ามถ้า m เองก็มีคอมโบกับตัวนั้นอยู่แล้ว — ให้ battlecry ของ m จัดการ ไม่ให้ซ้ำ)
+  reverseCombos(o, m) {
+    const mine = COMBO_WITH[m.id] || [];
+    for (const x of this.mins(o).slice()) {
+      if (x === m || x.comboUsed || !x.card.comboFx || !this.alive(x)) continue;
+      if (!(COMBO_WITH[x.id] || []).includes(m.id) || mine.includes(x.id)) continue;
+      x.comboUsed = true;
+      this.combo(x.card.comboLabel);
+      x.card.comboFx(this, o, x, m);
+    }
   }
 
   /* ---------------- การโจมตี ---------------- */
@@ -317,7 +357,7 @@ class Game {
     for (let k = 0; k < n && e.hand.length; k++) {
       const h = e.hand.splice(Math.floor(Math.random() * e.hand.length), 1)[0];
       this.log(`💰 ${me.name} ขโมย ${h.card.name}`, h.id);
-      if (me.hand.length < MAX_HAND) me.hand.push(h);
+      this.toHand(o, h);
     }
   }
   bounce(m) {
@@ -325,8 +365,15 @@ class Game {
     if (i < 0) return;
     b.splice(i, 1);
     const p = this.P(m.owner);
-    if (p.hand.length < MAX_HAND) p.hand.push(this.mkCard(m.id, -1));
+    this.toHand(m.owner, this.mkCard(m.id, -1));
   }
+  /* ---------------- ค่าร่าย ---------------- */
+  // ปรับค่าร่ายการ์ดในมือ (n ติดลบ = ถูกลง) ติดไปจนกว่าจะเล่นการ์ดใบนั้น
+  changeCost(o, hs, n) {
+    hs.forEach(h => { h.costDelta = (h.costDelta || 0) + n; });
+    if (hs.length) this.log(`${n < 0 ? '🏷️' : '📈'} การ์ด ${hs.length} ใบในมือ ${this.P(o).name} ค่าร่าย ${n > 0 ? '+' : ''}${n}`);
+  }
+
   /* ---------------- เด็ค: สับเข้า / เรียกออก ---------------- */
   insertDeck(o, h) { const d = this.P(o).deck; d.splice(Math.floor(Math.random() * (d.length + 1)), 0, h); }
   // o = เด็คของใคร, opt.by = ใครเป็นคนสับ (ค่าเริ่มต้น = o), opt.costDelta / opt.bonus = ติดไปกับการ์ด
@@ -351,8 +398,7 @@ class Game {
     p.deck.forEach((h, i) => { if (filter(h.card) && (bi < 0 || score(h.card) > score(p.deck[bi].card))) bi = i; });
     if (bi < 0) return null;
     const h = p.deck.splice(bi, 1)[0];
-    if (p.hand.length >= MAX_HAND) { this.log(`🔥 มือเต็ม! ${h.card.name} ถูกเผาทิ้ง`, h.id); return null; }
-    p.hand.push(h);
+    if (!this.toHand(o, h)) return null;
     this.log(`🔎 ${p.name} ค้นเด็คได้ ${o === 0 ? h.card.name : 'การ์ด 1 ใบ'}`, o === 0 ? h.id : null);
     return h;
   }
@@ -388,7 +434,7 @@ class Game {
       this.fx('deck', this.hero(o), 1);
     }
   }
-  summon(o, id) {
+  summon(o, id, pos) {
     const p = this.P(o);
     if (p.board.length >= MAX_BOARD) return null;
     const c = CARDS[id];
@@ -399,7 +445,8 @@ class Game {
     };
     c.kw.forEach(k => { m.kw[k] = true; });
     m.attacks = m.kw.windfury ? 2 : 1;
-    p.board.push(m);
+    if (pos == null || pos >= p.board.length) p.board.push(m);
+    else p.board.splice(Math.max(0, pos), 0, m);
     if (this.has(o, 'r_badge') && m.tags.includes('I.M.P.')) this.buff(m, 1, 1);
     if (this.has(o, 'r_collar') && m.tags.includes('Hellhound')) { m.atk += 1; m.kw.rush = true; }
     return m;

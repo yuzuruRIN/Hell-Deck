@@ -85,7 +85,9 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
   text-shadow: 0 1px 2px #000;
 }
 .card .cost.cheaper { background: radial-gradient(circle at 35% 30%, #9dffaa, #138a2a); }
-.card .cost.pricier { background: radial-gradient(circle at 35% 30%, #ff9a9a, #a3121f); }
+.card .cost.pricier { background: radial-gradient(circle at 35% 30%, #ffc27a, #c25a00); }
+/* ยังลงไม่ได้: ตัวเลขสีแดง */
+.card .cost.blocked { color: #ff3b3b; text-shadow: 0 0 2px #000, 0 0 4px #000, 0 1px 0 #000; -webkit-text-stroke: .04em #2a0006; }
 .card .art { width: 100%; height: 4.9em; border-radius: .5em; flex: none; }
 .card .cname { font-weight: 600; font-size: .88em; margin-top: .3em; text-align: center; line-height: 1.15;
   background: #0008; width: 100%; border-radius: .35em; padding: .15em .2em; }
@@ -438,3 +440,68 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
   .hs-info { position: static; }
   .hs-cards { justify-content: center; }
 }
+
+/* การ์ดที่ศัตรูใช้ — แสดงทับช่องพรีวิวในแถบซ้าย ไม่บังบอร์ด */
+.b-preview-wrap { position: relative; }
+#ePlay { position: absolute; inset: 0; z-index: 20; pointer-events: none; display: flex; justify-content: center; align-items: flex-start; }
+#ePlay:empty { display: none; }
+#ePlay .played { background: #0c0306f2; border: 2px solid var(--accent); border-radius: 14px; padding: 8px 6px 18px; width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; animation: slideIn .3s ease-out; box-shadow: 0 0 24px #ff2d5566; }
+#ePlay .played .card { font-size: clamp(12px, 2vh, 20px); }
+#ePlay .played-cap { font-weight: 800; color: #ffd6de; text-shadow: 0 0 10px #ff2d55; text-align: center; font-size: .95em; padding: 0 6px; }
+#ePlay .enemy-play .card { box-shadow: 0 0 1.6em #ff2d55aa, 0 .3em .9em #000a; }
+#ePlay .trap-reveal { border-color: #9b6bff; box-shadow: 0 0 24px #9b6bff88; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-30px); } }
+
+/* ลากการ์ด */
+.drag-ghost { position: fixed; z-index: 500; pointer-events: none; transform: rotate(-4deg) scale(.95); opacity: .95;
+  box-shadow: 0 0 0 .2em var(--gold), 0 1em 2.4em #000c !important; transition: opacity .1s; }
+.drag-ghost.cancel { opacity: .45; }
+.hand.player .card.drag-src { opacity: .25; transform: none !important; }
+.drop-slot { flex: none; width: 4.5em; height: 8.8em; border: .2em dashed var(--gold); border-radius: 1em; background: #ffcc3322;
+  box-shadow: 0 0 1.2em #ffcc3366; animation: pulse .9s ease-in-out infinite; }
+.drop-over { box-shadow: 0 0 0 .3em var(--gold), 0 0 2em var(--gold) !important; }
+#ePlay .card-back.big { font-size: clamp(12px, 2vh, 20px); }
+#ePlay .card-back.big span { font-size: 1.6em; }
+.hand.player .card { touch-action: none; }
+
+/* ============================ หน้าแรก (ภาพปก) ============================ */
+.title-screen { position: relative; min-height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-align: center; padding: 0; }
+.title-art { position: absolute; inset: 0; background: url('../assets/ui/title.webp') center 38% / cover no-repeat, var(--bg);
+  animation: titleZoom 22s ease-in-out infinite alternate; }
+.title-art::after { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 45%, #0c0306aa 100%), linear-gradient(transparent 52%, #0c0306e6 82%, #0c0306 100%); }
+@keyframes titleZoom { from { transform: scale(1); } to { transform: scale(1.05); } }
+.title-bottom { position: relative; z-index: 1; padding: 0 16px 3vh; width: 100%; }
+.title-screen .sub { color: #ffc2cf; font-size: 1.05em; margin: 0; text-shadow: 0 2px 6px #000; letter-spacing: .5px; }
+.title-screen .menu { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 14px; }
+.title-screen .menu .btn { min-width: 0; backdrop-filter: blur(4px); background: linear-gradient(#4a1622dd, #2c0b13dd); box-shadow: 0 4px 18px #000a; }
+.title-screen .menu .btn.primary { background: linear-gradient(#ff3d64, #b3112f); }
+.title-screen .foot { margin-top: 14px; font-size: .78em; text-shadow: 0 1px 3px #000; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 700px) { .title-screen .menu { flex-direction: column; align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) { .title-art { animation: none; } }
+
+/* ============================ มือเต็ม / เผาการ์ด ============================ */
+.hand-n.near { color: #ffb347; font-weight: 600; }
+.hand-n.full { color: #ff4d4d; font-weight: 800; }
+.hand-count { margin-left: .5em; font-size: .9em; color: var(--muted); white-space: nowrap; }
+.hand-count.full { color: #ff4d4d; font-weight: 800; }
+.hand-warn { color: #ff6b4d; font-weight: 800; font-size: .95em; animation: warnPulse 1s ease-in-out infinite; }
+@keyframes warnPulse { 50% { opacity: .55; } }
+
+.burn-fx { position: absolute; left: calc(50% + var(--off, 0em)); z-index: 45; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: .4em; animation: burnUp var(--dur, 2.2s) ease-in forwards; }
+.burn-fx.mine { bottom: 24vh; }
+.burn-fx.theirs { top: 7vh; }
+.burn-fx .card { font-size: calc(var(--u) * 1.4); animation: burnCard var(--dur, 2.2s) ease-in forwards; }
+.burn-cap { font-weight: 800; color: #ffd27a; background: #000c; padding: .15em .8em; border-radius: .6em; text-shadow: 0 0 8px #ff5a00; white-space: nowrap; }
+.burn-flame { position: absolute; left: 50%; bottom: -1em; width: 13em; height: 18em; transform: translateX(-50%); border-radius: 50% 50% 20% 20%;
+  background: radial-gradient(ellipse at 50% 100%, #ffdd55 0%, #ff7a1a 30%, #e01b1baa 55%, transparent 72%);
+  mix-blend-mode: screen; filter: blur(6px); animation: flame var(--dur, 2.2s) ease-in forwards; }
+@keyframes burnUp { 0% { opacity: 0; transform: translate(-50%, 20px); } 12% { opacity: 1; transform: translate(-50%, 0); }
+  70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -40px); } }
+@keyframes burnCard { 0%, 30% { filter: none; } 60% { filter: sepia(1) saturate(3) brightness(1.1) hue-rotate(-20deg); }
+  100% { filter: sepia(1) brightness(.15) blur(2px); transform: scale(.85) rotate(-4deg); } }
+@keyframes flame { 0%, 25% { opacity: 0; transform: translateX(-50%) scaleY(.2); } 45% { opacity: 1; transform: translateX(-50%) scaleY(1); }
+  100% { opacity: 0; transform: translateX(-50%) scaleY(1.3); } }
