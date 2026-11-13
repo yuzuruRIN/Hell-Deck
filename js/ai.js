@@ -63,8 +63,8 @@ function aiPickAttack(g, m) {
 
 async function aiTurn(g, ui) {
   const o = 1;
-  await sleep(700);
-  // 1) ลงการ์ด
+  await ui.wait(900);
+  // 1) ลงการ์ด — แสดงการ์ดให้เห็นก่อน แล้วค่อยให้เอฟเฟคทำงาน
   for (let guard = 0; guard < 25 && !g.over; guard++) {
     const p = g.P(o);
     const cands = p.hand
@@ -74,9 +74,13 @@ async function aiTurn(g, ui) {
     for (const h of cands) {
       const t = aiPickTarget(g, o, h);
       if (t === false) continue;
+      await ui.showEnemyPlay(h, t);
+      if (ui.g !== g) return;
       g.play(o, h.uid, t);
       ui.render();
-      await sleep(950);
+      await ui.wait(1000);
+      ui.clearEnemyPlay();
+      await ui.wait(250);
       played = true;
       break;
     }
@@ -93,7 +97,7 @@ async function aiTurn(g, ui) {
     await ui.animateAttack(m, t);
     if (!g.attack(m, t)) tried.add(m.uid);
     ui.render();
-    await sleep(550);
+    await ui.wait(800);
   }
-  await sleep(300);
+  await ui.wait(400);
 }

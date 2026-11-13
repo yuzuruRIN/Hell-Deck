@@ -26,23 +26,29 @@ function cardEmoji(c) {
   if (c.type !== 'minion') return TYPE_EMOJI[c.type];
   return TAG_EMOJI[c.tags[0]] || '😈';
 }
-function kwTooltip(c) {
-  return (c.kw || []).map(k => KEYWORDS[k] ? `${KEYWORDS[k].name}: ${KEYWORDS[k].desc}` : '').filter(Boolean).join('\n');
+/* ---------- ความเร็วแอนิเมชัน (จำไว้ในเบราว์เซอร์) ---------- */
+const SPEEDS = { slow: { label: '🐢 ช้า', k: 1.6 }, normal: { label: '▶ ปกติ', k: 1 }, fast: { label: '⏩ เร็ว', k: 0.5 } };
+let SPEED = 'normal';
+try { const s = localStorage.getItem('hellsdeck_speed'); if (SPEEDS[s]) SPEED = s; } catch (e) { /* ignore */ }
+function setSpeed(s) { SPEED = s; try { localStorage.setItem('hellsdeck_speed', s); } catch (e) { /* ignore */ } }
+const wait = ms => sleep(ms * SPEEDS[SPEED].k);
+
+function textSizeCls(c) {
+  const n = stripTags(c.text).length;
+  return n > 135 ? 'xlong' : n > 90 ? 'long' : '';
 }
 function cardHTML(c, o = {}) {
   const cost = o.cost ?? c.cost;
   const costCls = cost < c.cost ? 'cheaper' : cost > c.cost ? 'pricier' : '';
   const tags = c.tags.length ? ' · ' + c.tags.join(' · ') : '';
   const rar = c.rar && c.rar !== 'common' && !c.boss && !c.token ? c.rar : '';
-  const tip = kwTooltip(c);
-  const textLen = (c.text || '').replace(/<[^>]+>/g, '').length;
-  return `<div class="card ${c.type} ${rar ? 'rar-' + rar : ''} ${o.cls || ''}" ${o.attrs || ''} ${tip ? `title="${tip}"` : ''}>
+  return `<div class="card ${c.type} ${rar ? 'rar-' + rar : ''} ${o.cls || ''}" data-cid="${c.id}" ${o.attrs || ''}>
     <div class="cost ${costCls}">${cost}</div>
     ${artHTML('cards', c.id, cardEmoji(c))}
     <div class="cname">${rar === 'legendary' ? '🌟 ' : ''}${c.name}</div>
     <div class="ctype">${TYPE_LABEL[c.type]}${rar ? ' · ' + CARD_RARITY_LABEL[rar] : ''}${tags}</div>
-    <div class="ctext ${textLen > 95 ? 'long' : ''}">${c.text || ''}</div>
-    ${c.type === 'minion' ? `<div class="atk">${c.atk}</div><div class="hp">${c.hp}</div>` : ''}
+    <div class="ctext ${textSizeCls(c)}">${c.text || ''}</div>
+    ${c.type === 'minion' ? (b => `<div class="atk ${b.a ? 'buffed' : ''}">${c.atk + (b.a || 0)}</div><div class="hp ${b.h ? 'buffed' : ''}">${c.hp + (b.h || 0)}</div>`)(o.bonus || {}) : ''}
     ${o.extra || ''}
   </div>`;
 }
@@ -54,6 +60,68 @@ function relicHTML(r, o = {}) {
   </div>`;
 }
 
+/* ---------- คำอธิบายความสามารถ ---------- */
+function glossaryHTML(c, liveKw = []) {
+  const list = glossaryFor(c, liveKw);
+  if (!list.length) return '';
+  return '<ul class="kw-list">' + list.map(k => `<li><b>${k.icon} ${k.name}</b> — ${k.desc}</li>`).join('') + '</ul>';
+}
+
+/* ---------- ป๊อปอัปตอนชี้การ์ดค้างไว้: คำอธิบาย + การ์ดคู่หูคอมโบ ----------
+   ทุก element ที่มี data-cid ใช้ได้ / data-tip="card" = แสดงภาพการ์ดด้วย (เช่น ประวัติการเล่น) */
+const CardTip = {
+  el: null, cur: null, timer: null,
+  init() {
+    this.el = document.createElement('div');
+    this.el.id = 'cardTip';
+    document.body.appendChild(this.el);
+    document.addEventListener('mouseover', e => this.over(e));
+    document.addEventListener('mousedown', () => this.hide());
+    document.addEventListener('scroll', () => this.hide(), true);
+  },
+  over(e) {
+    const t = e.target.closest('[data-cid]');
+    if (t === this.cur) return;
+    this.cur = t;
+    clearTimeout(this.timer);
+    this.hide();
+    if (!t) return;
+    this.timer = setTimeout(() => this.show(t), t.dataset.tip === 'card' ? 120 : 450);
+  },
+  hide() { if (this.el) this.el.classList.remove('show'); },
+  show(t) {
+    if (!document.body.contains(t)) return;
+    const c = CARDS[t.dataset.cid];
+    if (!c) return;
+    const withCard = t.dataset.tip === 'card';
+    const inBattle = !!t.closest('#battle');
+    const partners = comboPartners(c.id), syn = synergyPartners(c.id);
+    // ในสนาม คำอธิบายแสดงอยู่ที่แถบซ้ายแล้ว ป๊อปอัปจึงแสดงเฉพาะคอมโบ
+    const gl = !inBattle || withCard ? glossaryHTML(c) : '';
+    if (!withCard && !partners.length && !syn.length && !gl) return;
+    this.el.innerHTML = `
+      ${withCard ? `<div class="tip-main">${cardHTML(c)}</div>` : ''}
+      <div class="tip-side">
+        ${gl ? `<h4>📘 ความสามารถ</h4>${gl}` : ''}
+        ${partners.length ? `<h4>💞 คอมโบกับการ์ดเหล่านี้</h4>
+          <div class="tip-combos">${partners.map(id => cardHTML(CARDS[id])).join('')}</div>` : ''}
+        ${syn.length ? `<h4>🔗 เล่นคู่กันแล้วเข้ากันดี</h4>
+          <div class="tip-combos syn">${syn.map(id => cardHTML(CARDS[id])).join('')}</div>` : ''}
+      </div>`;
+    this.el.classList.toggle('narrow', !partners.length && !syn.length && !withCard);
+    this.el.classList.add('show');
+    const r = t.getBoundingClientRect(), w = this.el.offsetWidth, h = this.el.offsetHeight;
+    const vw = innerWidth, vh = innerHeight, gap = 14;
+    let x = r.right + gap;
+    if (x + w > vw - 8) x = r.left - w - gap;
+    if (x < 8) x = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2));
+    let y = Math.max(8, Math.min(vh - h - 8, r.top + r.height / 2 - h / 2));
+    this.el.style.left = `${x}px`;
+    this.el.style.top = `${y}px`;
+  },
+};
+window.addEventListener('DOMContentLoaded', () => CardTip.init());
+
 /* ============================ หน้าจอต่อสู้ ============================ */
 const BattleUI = {
   g: null, sel: null, busy: false, logs: [], onOver: null, overFired: false,
@@ -61,7 +129,7 @@ const BattleUI = {
   mount(g, onOver) {
     this.g = g; this.onOver = onOver; this.sel = null; this.busy = false; this.logs = []; this.overFired = false;
     g.ui = {
-      log: m => this.log(m),
+      log: (m, cid) => this.log(m, cid),
       fx: (t, e, n) => this.fx(t, e, n),
       onPlay: (o, h) => this.onPlay(o, h),
       onTrap: (o, c) => this.onTrap(o, c),
@@ -73,8 +141,10 @@ const BattleUI = {
           <div class="b-boss-info"><b>${g.boss.name}</b><small>${g.boss.title} — ${g.boss.desc}</small></div>
           <div class="b-preview" id="bPreview"><div class="hint">ชี้เมาส์ที่การ์ดหรือมินเนี่ยนเพื่อดูรายละเอียด</div></div>
           <div class="b-relics" id="bRelics"></div>
+          <div class="b-log-head">📜 ประวัติการเล่น <small>(ชี้รายการเพื่อดูการ์ด)</small></div>
           <div class="b-log" id="bLog"></div>
-          <div class="b-help">คลิกการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก</div>
+          <div class="b-help">คลิกการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก • ชี้การ์ดค้างไว้เพื่อดูคอมโบ</div>
+          <div class="b-speed" id="bSpeed">ความเร็ว: ${Object.entries(SPEEDS).map(([k, v]) => `<button class="btn small ${k === SPEED ? 'primary' : ''}" data-speed="${k}">${v.label}</button>`).join('')}</div>
           <button class="btn small ghost" id="bConcede">🏳️ ยอมแพ้</button>
         </aside>
         <main class="b-arena" id="bArena">
@@ -93,6 +163,12 @@ const BattleUI = {
     arena.addEventListener('click', e => this.onClick(e));
     arena.addEventListener('contextmenu', e => { e.preventDefault(); this.cancel(); });
     $('#battle').addEventListener('mouseover', e => this.onHover(e));
+    $('#bSpeed').onclick = e => {
+      const s = e.target.closest('[data-speed]')?.dataset.speed;
+      if (!s) return;
+      setSpeed(s);
+      document.querySelectorAll('#bSpeed [data-speed]').forEach(b => b.classList.toggle('primary', b.dataset.speed === s));
+    };
     $('#bConcede').onclick = () => {
       if (this.g.over || !confirm('ยอมแพ้การต่อสู้นี้? (รันจะจบลง)')) return;
       this.g.hero(0).hp = 0; this.g.checkOver(); this.render();
@@ -105,7 +181,8 @@ const BattleUI = {
     this.banner('⚔️ เทิร์นของคุณ');
   },
 
-  unmount() { document.removeEventListener('keydown', this.keyHandler); this.g = null; },
+  unmount() { document.removeEventListener('keydown', this.keyHandler); this.g = null; CardTip.hide(); },
+  wait(ms) { return wait(ms); },
 
   /* ---------- วาดหน้าจอ ---------- */
   render() {
@@ -122,8 +199,10 @@ const BattleUI = {
     $('#pHeroRow').innerHTML = this.heroRowHTML(P, valid);
     $('#pHand').innerHTML = P.hand.map(h => {
       const playable = myTurn && !this.busy && g.canPlay(0, h);
-      const cls = [playable ? 'playable' : '', this.sel?.mode === 'play' && this.sel.uid === h.uid ? 'selected' : ''].join(' ');
-      return cardHTML(h.card, { cost: g.cost(0, h), cls, attrs: `data-hand="${h.uid}"` });
+      const ready = myTurn && comboReady(g, 0, h.card);
+      const cls = [playable ? 'playable' : '', ready ? 'combo-ready' : '', this.sel?.mode === 'play' && this.sel.uid === h.uid ? 'selected' : ''].join(' ');
+      return cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus, cls, attrs: `data-hand="${h.uid}"`,
+        extra: ready ? '<div class="combo-badge">💞 คอมโบพร้อม!</div>' : '' });
     }).join('');
     $('#pHand').style.setProperty('--n', P.hand.length);
 
@@ -160,6 +239,7 @@ const BattleUI = {
         <div class="mana-txt">💎 ${p.mana}/${p.maxMana}</div>
         <div class="gems">${crystals}</div>
         <div class="meta">🂠 เด็ค ${p.deck.length} &nbsp; ✋ ${p.hand.length}${p.fatigue ? ` &nbsp; Fatigue ${p.fatigue}` : ''}</div>
+        ${p.o === 0 && p.shuffled ? `<div class="meta" title="จำนวนการ์ดที่คุณสับเข้าเด็คในเกมนี้ (ใช้กับ Stolas's Prophecy)">🔀 สับแล้ว ${p.shuffled}</div>` : ''}
         ${p.o === 0 && p.deaths ? `<div class="meta" title="จำนวนมินเนี่ยนฝ่ายเราที่ตายในเกมนี้ (ใช้กับคอมโบของ Satan)">☠️ ตายแล้ว ${p.deaths}</div>` : ''}
       </div>`;
   },
@@ -173,11 +253,11 @@ const BattleUI = {
       this.sel?.mode === 'attack' && this.sel.uid === m.uid ? 'selected' : '',
       valid.has(m.uid) ? 'targetable' : ''].join(' ');
     const icons = Object.keys(m.kw).filter(k => m.kw[k] && KEYWORDS[k] && k !== 'taunt' && k !== 'shield').map(k => KEYWORDS[k].icon).join('')
-      + (c.deathrattle ? '💀' : '') + (c.onTurnEnd || c.onTurnStart || c.onSpell || c.onFriendlyDeath || c.onAttack ? '⚙️' : '')
+      + (c.deathrattle ? '💀' : '') + (c.onTurnEnd || c.onTurnStart || c.onSpell || c.onFriendlyDeath || c.onAttack || c.onShuffle ? '⚙️' : '')
       + (m.sleeping && !m.kw.charge && !m.kw.rush && m.owner === g.current ? '💤' : '');
     const atkCls = m.atk > c.atk ? 'buffed' : m.atk < c.atk ? 'debuffed' : '';
     const hpCls = m.hp < m.maxHp ? 'damaged' : m.hp > c.hp ? 'buffed' : '';
-    return `<div class="${cls}" data-uid="${m.uid}">
+    return `<div class="${cls}" data-uid="${m.uid}" data-cid="${m.id}">
       ${artHTML('cards', m.id, cardEmoji(c))}
       <div class="m-icons">${icons}</div>
       <div class="m-name">${m.name}</div>
@@ -198,15 +278,15 @@ const BattleUI = {
     let html = '';
     if (handEl) {
       const h = g.P(0).hand.find(x => x.uid === +handEl.dataset.hand);
-      if (h) html = cardHTML(h.card, { cost: g.cost(0, h) }) + this.kwExplain(h.card.kw);
+      if (h) html = cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus }) + (comboReady(g, 0, h.card) ? '<p class="note">💞 ลงตอนนี้จะทำคอมโบ!</p>' : '') + glossaryHTML(h.card);
     } else if (trapEl) {
       const h = g.P(0).traps.find(x => x.uid === +trapEl.dataset.trap);
-      if (h) html = cardHTML(h.card) + '<p class="note">กับดักนี้ซ่อนอยู่ ศัตรูมองไม่เห็น</p>';
+      if (h) html = cardHTML(h.card) + '<p class="note">กับดักนี้ซ่อนอยู่ ศัตรูมองไม่เห็น</p>' + glossaryHTML(h.card);
     } else if (entEl) {
       const t = g.findEntity(+entEl.dataset.uid);
       if (t && t.kind === 'minion') {
         const kws = Object.keys(t.kw).filter(k => t.kw[k]);
-        html = cardHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + this.kwExplain(kws);
+        html = cardHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + glossaryHTML(t.card, kws);
       } else if (t) {
         const p = g.P(t.owner);
         html = `<div class="hero-preview">${artHTML(p.portrait.folder, p.portrait.id, p.portrait.emoji)}<b>${p.name}</b>
@@ -218,11 +298,6 @@ const BattleUI = {
       html = `<div class="note pre">${relEl.title}</div>`;
     }
     if (html) box.innerHTML = html;
-  },
-  kwExplain(kws) {
-    const list = (kws || []).filter(k => KEYWORDS[k]);
-    if (!list.length) return '';
-    return '<ul class="kw-list">' + list.map(k => `<li><b>${KEYWORDS[k].icon} ${KEYWORDS[k].name}</b> — ${KEYWORDS[k].desc}</li>`).join('') + '</ul>';
   },
 
   /* ---------- การคลิก ---------- */
@@ -320,9 +395,10 @@ const BattleUI = {
     const dx = (rb.left + rb.width / 2) - (ra.left + ra.width / 2);
     const dy = (rb.top + rb.height / 2) - (ra.top + ra.height / 2);
     a.style.zIndex = 50;
-    a.style.transition = 'transform .22s ease-in';
+    const ms = Math.round(420 * SPEEDS[SPEED].k);
+    a.style.transition = `transform ${ms}ms ease-in`;
     a.style.transform = `translate(${dx * 0.8}px, ${dy * 0.8}px) scale(1.1)`;
-    await sleep(230);
+    await sleep(ms + 20);
   },
 
   fx(type, t, n) {
@@ -331,7 +407,7 @@ const BattleUI = {
     const r = el.getBoundingClientRect();
     const map = {
       dmg: [`-${n}`, 'f-dmg'], heal: [`+${n}`, 'f-heal'], shield: ['ป้องกัน!', 'f-shield'],
-      freeze: ['❄️', 'f-freeze'], armor: [`+${n} 🛡️`, 'f-armor'], death: ['💀', 'f-death'],
+      freeze: ['❄️', 'f-freeze'], armor: [`+${n} 🛡️`, 'f-armor'], death: ['💀', 'f-death'], deck: [`🔀 +${n} เด็ค`, 'f-deck'],
     };
     if (!map[type]) return;
     const [txt, cls] = map[type];
@@ -345,25 +421,35 @@ const BattleUI = {
     if (type === 'dmg') { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
   },
 
-  onPlay(o, h) {
-    if (o !== 1) return;
+  onPlay() { /* การ์ดของบอสแสดงล่วงหน้าแล้วใน showEnemyPlay */ },
+
+  // แสดงการ์ดที่บอสกำลังจะเล่น (ก่อนเอฟเฟคทำงาน) พร้อมชี้เป้าหมาย
+  async showEnemyPlay(h, target) {
     const ov = $('#bOverlay');
     if (!ov) return;
-    const html = h.card.type === 'trap'
+    const c = h.card, g = this.g;
+    const html = c.type === 'trap'
       ? '<div class="card-back big"><span>🪤<br>กับดัก</span></div>'
-      : cardHTML(h.card, { cost: this.g.cost(1, h) });
-    ov.innerHTML = `<div class="played">${html}</div>`;
+      : cardHTML(c, { cost: g.cost(1, h) });
+    const tName = target && c.type !== 'trap' ? ` → 🎯 ${target.name}` : '';
+    ov.innerHTML = `<div class="played enemy-play"><div class="played-cap">🔴 ${g.boss.name} ใช้${c.type === 'trap' ? 'กับดัก' : ''}${tName}</div>${html}</div>`;
     clearTimeout(this.ovT);
-    this.ovT = setTimeout(() => { ov.innerHTML = ''; }, 1000);
+    const tEl = target && document.querySelector(`#bArena [data-uid="${target.uid}"]`);
+    if (tEl) tEl.classList.add('ai-target');
+    await wait(c.type === 'trap' ? 1100 : 1700);
+  },
+  clearEnemyPlay() {
+    const ov = $('#bOverlay');
+    if (ov && ov.querySelector('.enemy-play')) ov.innerHTML = '';
   },
 
   onTrap(o, c) {
     this.banner(`🪤 กับดัก: ${c.name}!`);
     const ov = $('#bOverlay');
     if (ov && o === 1) {
-      ov.innerHTML = `<div class="played trap-reveal">${cardHTML(c)}</div>`;
+      ov.innerHTML = `<div class="played trap-reveal"><div class="played-cap">🪤 กับดักของ ${this.g.boss.name} ทำงาน!</div>${cardHTML(c)}</div>`;
       clearTimeout(this.ovT);
-      this.ovT = setTimeout(() => { ov.innerHTML = ''; }, 1400);
+      this.ovT = setTimeout(() => { if (ov.querySelector('.trap-reveal')) ov.innerHTML = ''; }, 2400 * SPEEDS[SPEED].k);
     }
   },
 
@@ -387,12 +473,14 @@ const BattleUI = {
     this.toastT = setTimeout(() => t.classList.remove('show'), 1600);
   },
 
-  log(m) {
-    this.logs.push(m);
+  log(m, cid) {
+    this.logs.push({ m, cid: cid && CARDS[cid] ? cid : null });
     if (this.logs.length > 80) this.logs.shift();
     const el = $('#bLog');
     if (!el) return;
-    el.innerHTML = this.logs.map(x => `<div>${x}</div>`).join('');
+    el.innerHTML = this.logs.map(x => x.cid
+      ? `<div class="log-entry has-card" data-cid="${x.cid}" data-tip="card">${x.m}</div>`
+      : `<div class="log-entry">${x.m}</div>`).join('');
     el.scrollTop = el.scrollHeight;
   },
 

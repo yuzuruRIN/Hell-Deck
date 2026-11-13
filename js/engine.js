@@ -26,6 +26,7 @@ class Game {
       mana: 0, maxMana: bonusMana || 0, fatigue: 0,
       relics: d.relics || [], spellsThisTurn: 0,
       deaths: 0, spellsCast: 0, bonus: d.bonus || {},
+      shuffled: 0, played: [],
     });
     const b = cfg.boss;
     this.players = [
@@ -35,7 +36,13 @@ class Game {
   }
 
   /* ---------------- ทางลัด ---------------- */
-  mkCard(id, costDelta = 0) { return { uid: UID++, id, card: CARDS[id], costDelta }; }
+  mkCard(id, costDelta = 0, bonus = null) { return { uid: UID++, id, card: CARDS[id], costDelta, bonus }; }
+  // บัฟที่ติดมากับการ์ด (เช่น สำเนาที่ถูกสับเข้าเด็คพร้อม +1/+1)
+  applyBonus(m, h) {
+    if (!m || !h || !h.bonus) return;
+    m.atk += h.bonus.a || 0; m.hp += h.bonus.h || 0; m.maxHp += h.bonus.h || 0;
+    m.bonus = { a: h.bonus.a || 0, h: h.bonus.h || 0 };
+  }
   P(o) { return this.players[o]; }
   opp(o) { return 1 - o; }
   hero(o) { return this.players[o].hero; }
@@ -60,7 +67,7 @@ class Game {
     }
     return null;
   }
-  log(m) { this.ui.log && this.ui.log(m); }
+  log(m, cid) { this.ui.log && this.ui.log(m, cid); }
   fx(type, t, n) { this.ui.fx && this.ui.fx(type, t, n); }
   banner(t) { this.ui.banner && this.ui.banner(t); }
   combo(label) { this.log(`✨ คอมโบ: ${label}`); this.banner(label); }
@@ -115,7 +122,15 @@ class Game {
         continue;
       }
       const h = p.deck.shift();
-      if (p.hand.length >= MAX_HAND) { this.log(`🔥 มือเต็ม! ${h.card.name} ถูกเผาทิ้ง`); continue; }
+      // การ์ด "เมื่อจั่ว" ทำงานทันที แล้วจั่วใบใหม่แทน
+      if (h.card.castOnDraw) {
+        this.log(`⚡ ${p.name} จั่วได้ ${h.card.name}!`, h.id);
+        this.banner(`${h.card.emoji || '⚡'} ${h.card.name}!`);
+        h.card.onDraw(this, o, h);
+        this.draw(o, 1);
+        continue;
+      }
+      if (p.hand.length >= MAX_HAND) { this.log(`🔥 มือเต็ม! ${h.card.name} ถูกเผาทิ้ง`, h.id); continue; }
       p.hand.push(h);
     }
   }
@@ -171,11 +186,14 @@ class Game {
     const cost = this.cost(o, h);
     p.hand.splice(i, 1);
     p.mana -= cost;
-    this.log(`${o === 0 ? '🟢' : '🔴'} ${p.name} ใช้ ${c.type === 'trap' && o === 1 ? 'กับดัก' : c.name}`);
+    if (!c.token) p.played.push(c.id);
+    const hidden = c.type === 'trap' && o === 1;
+    this.log(`${o === 0 ? '🟢' : '🔴'} ${p.name} ใช้ ${hidden ? 'กับดัก' : c.name}${!hidden && target ? ` → ${target.name}` : ''}`, hidden ? null : c.id);
     this.ui.onPlay && this.ui.onPlay(o, h);
 
     if (c.type === 'minion') {
       const m = this.summon(o, c.id);
+      this.applyBonus(m, h);
       if (m && c.battlecry) c.battlecry(this, o, target, m);
       this.cleanup();
       if (m && !this.over && this.alive(m)) { this.fireTraps(this.opp(o), 'play_minion', { minion: m }); this.cleanup(); }
@@ -185,14 +203,14 @@ class Game {
       const ev = { card: c, caster: o, cancel: false };
       this.fireTraps(this.opp(o), 'spell', ev);
       if (ev.cancel) {
-        this.log(`🚫 ${c.name} ถูกยกเลิก!`);
+        this.log(`🚫 ${c.name} ถูกยกเลิก!`, c.id);
       } else {
         c.cast(this, o, target);
         this.cleanup();
         if (this.has(o, 'r_echo') && !this.over) {
           let t2 = target;
           if (c.target && !this.alive(t2)) t2 = rnd(this.validTargets(o, c.target, c.targetFilter));
-          if (!c.target || t2) { this.log(`🎤 Echo! ${c.name} ร่ายซ้ำ`); c.cast(this, o, t2); this.cleanup(); }
+          if (!c.target || t2) { this.log(`🎤 Echo! ${c.name} ร่ายซ้ำ`, c.id); c.cast(this, o, t2); this.cleanup(); }
         }
         this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onSpell) m.card.onSpell(this, o, m); });
       }
@@ -232,7 +250,7 @@ class Game {
     this.fireTraps(this.opp(m.owner), 'attack', ev);
     if (ev.cancel || !this.alive(m) || !this.alive(ev.target)) { this.cleanup(); return true; }
     t = ev.target;
-    this.log(`⚔️ ${m.name} โจมตี ${t.name}`);
+    this.log(`⚔️ ${m.name} โจมตี ${t.name}`, m.id);
     const a = m.atk, d = t.kind === 'minion' ? t.atk : 0;
     this.dmg(t, a, m);
     if (t.kind === 'minion' && d > 0) this.dmg(m, d, t);
@@ -292,13 +310,13 @@ class Game {
     m.sleeping = true;
     m.attacks = m.kw.windfury ? 2 : 1;
     this.mins(o).push(m);
-    this.log(`💘 ${this.P(o).name} ควบคุม ${m.name}!`);
+    this.log(`💘 ${this.P(o).name} ควบคุม ${m.name}!`, m.id);
   }
   stealCards(o, n) {
     const e = this.P(this.opp(o)), me = this.P(o);
     for (let k = 0; k < n && e.hand.length; k++) {
       const h = e.hand.splice(Math.floor(Math.random() * e.hand.length), 1)[0];
-      this.log(`💰 ${me.name} ขโมย ${h.card.name}`);
+      this.log(`💰 ${me.name} ขโมย ${h.card.name}`, h.id);
       if (me.hand.length < MAX_HAND) me.hand.push(h);
     }
   }
@@ -308,6 +326,67 @@ class Game {
     b.splice(i, 1);
     const p = this.P(m.owner);
     if (p.hand.length < MAX_HAND) p.hand.push(this.mkCard(m.id, -1));
+  }
+  /* ---------------- เด็ค: สับเข้า / เรียกออก ---------------- */
+  insertDeck(o, h) { const d = this.P(o).deck; d.splice(Math.floor(Math.random() * (d.length + 1)), 0, h); }
+  // o = เด็คของใคร, opt.by = ใครเป็นคนสับ (ค่าเริ่มต้น = o), opt.costDelta / opt.bonus = ติดไปกับการ์ด
+  shuffleIn(o, id, n = 1, opt = {}) {
+    if (!CARDS[id] || n <= 0) return;
+    const bonus = opt.bonus && (opt.bonus.a || opt.bonus.h) ? opt.bonus : null;
+    for (let i = 0; i < n; i++) this.insertDeck(o, this.mkCard(id, opt.costDelta || 0, bonus));
+    const by = opt.by ?? o;
+    const extra = bonus ? ` (+${bonus.a}/+${bonus.h})` : opt.costDelta ? ` (ค่าร่าย ${opt.costDelta})` : '';
+    this.log(`🔀 ${this.P(by).name} สับ ${CARDS[id].name}${n > 1 ? ` ×${n}` : ''}${extra} เข้าเด็ค${by !== o ? `ของ ${this.P(o).name}` : ''}`, id);
+    this.fx('deck', this.hero(o), n);
+    this.afterShuffle(o, by, n);
+  }
+  afterShuffle(o, by, n) {
+    this.P(by).shuffled += n;
+    this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onShuffle) m.card.onShuffle(this, o, m, n); });
+  }
+  // จั่วการ์ดเฉพาะเจาะจงจากเด็ค: เลือกใบที่ score สูงสุด
+  drawBest(o, filter, score = () => 0) {
+    const p = this.P(o);
+    let bi = -1;
+    p.deck.forEach((h, i) => { if (filter(h.card) && (bi < 0 || score(h.card) > score(p.deck[bi].card))) bi = i; });
+    if (bi < 0) return null;
+    const h = p.deck.splice(bi, 1)[0];
+    if (p.hand.length >= MAX_HAND) { this.log(`🔥 มือเต็ม! ${h.card.name} ถูกเผาทิ้ง`, h.id); return null; }
+    p.hand.push(h);
+    this.log(`🔎 ${p.name} ค้นเด็คได้ ${o === 0 ? h.card.name : 'การ์ด 1 ใบ'}`, o === 0 ? h.id : null);
+    return h;
+  }
+  // เรียกมินเนี่ยนจากเด็คลงสนาม (ไม่ทำ Battlecry)
+  recruit(o, filter) {
+    const p = this.P(o);
+    if (p.board.length >= MAX_BOARD) return null;
+    const i = p.deck.findIndex(h => h.card.type === 'minion' && (!filter || filter(h.card)));
+    if (i < 0) return null;
+    const h = p.deck.splice(i, 1)[0];
+    const m = this.summon(o, h.id);
+    this.applyBonus(m, h);
+    if (m) this.log(`📤 ${p.name} เรียก ${h.card.name} ออกจากเด็ค`, h.id);
+    return m;
+  }
+  // ส่งมินเนี่ยนบนบอร์ดกลับเข้าเด็ค (ไม่นับว่าตาย) — toO = เด็คของใคร (ค่าเริ่มต้น = เจ้าของ)
+  tuck(m, toO = m && m.owner, by = toO) {
+    if (!m || m.kind !== 'minion' || !this.alive(m)) return;
+    const b = this.mins(m.owner);
+    b.splice(b.indexOf(m), 1);
+    this.insertDeck(toO, this.mkCard(m.id));
+    this.log(`🔀 ${m.name} ถูกสับเข้าเด็คของ ${this.P(toO).name}`, m.id);
+    this.fx('deck', this.hero(toO), 1);
+    this.afterShuffle(toO, by, 1);
+  }
+  // ยึดการ์ดสุ่มจากมือศัตรู สับเข้าเด็คตัวเอง
+  stealToDeck(o, n) {
+    const e = this.P(this.opp(o));
+    for (let k = 0; k < n && e.hand.length; k++) {
+      const h = e.hand.splice(Math.floor(Math.random() * e.hand.length), 1)[0];
+      this.insertDeck(o, h);
+      this.log(`🧮 ${this.P(o).name} ยึด ${h.card.name} จากมือ ${e.name} เข้าเด็ค`, h.id);
+      this.fx('deck', this.hero(o), 1);
+    }
   }
   summon(o, id) {
     const p = this.P(o);
@@ -335,7 +414,7 @@ class Game {
       if (tr.on !== on) continue;
       if (tr.cond && !tr.cond(this, o, ev)) continue;
       p.traps.splice(p.traps.indexOf(h), 1);
-      this.log(`🪤 กับดัก "${h.card.name}" ของ ${p.name} ทำงาน!`);
+      this.log(`🪤 กับดัก "${h.card.name}" ของ ${p.name} ทำงาน!`, h.id);
       this.ui.onTrap && this.ui.onTrap(o, h.card);
       tr.fire(this, o, ev);
       if (ev.cancel) break;
@@ -354,7 +433,7 @@ class Game {
         m.dead = true;
         this.P(m.owner).deaths++;
         this.fx('death', m);
-        this.log(`☠️ ${m.name} ตาย`);
+        this.log(`☠️ ${m.name} ตาย`, m.id);
       }
       for (const m of dead) {
         if (m.card.deathrattle) m.card.deathrattle(this, m.owner, m);
