@@ -393,3 +393,48 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .ai-target::after { content: '🎯'; position: absolute; top: -1.1em; left: 50%; transform: translateX(-50%); font-size: 1.6em; z-index: 5;
   background: none; inset: auto; display: block; }
 .f-deck { color: #c7a4ff; font-size: 20px; }
+
+/* ============================ หน้าเลือกฮีโร่ ============================ */
+.hs-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.hs-tab { font: inherit; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.hs-tab:hover { transform: translateY(-3px); border-color: #ff8fa5; }
+.hs-tab.active { border-color: var(--accent); background: linear-gradient(135deg, #4a1222, var(--panel)); box-shadow: 0 0 18px #ff2d5566; }
+.hs-tab .art { width: 54px; height: 54px; border-radius: 50%; flex: none; border: 2px solid #ff8fa5; }
+.hs-tab .art .emoji { font-size: 1.8em; }
+.hs-tab span { display: flex; flex-direction: column; min-width: 0; }
+.hs-tab b { font-size: 1.15em; }
+.hs-tab small { color: var(--muted); font-size: .8em; }
+
+.hs-detail { display: grid; grid-template-columns: 330px 1fr; gap: 18px; align-items: start; }
+.hs-info { background: var(--panel); border: 2px solid var(--accent); border-radius: 18px; padding: 18px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 24px #ff2d5533; position: sticky; top: 16px; }
+.hs-portrait .art { width: 160px; height: 160px; border-radius: 50%; border: 3px solid #ff8fa5; box-shadow: 0 0 26px #ff2d5577; }
+.hs-portrait .art .emoji { font-size: 4.4em; }
+.hs-info h3 { margin: 10px 0 0; font-size: 1.8em; }
+.hs-desc { margin: 8px 0 12px; }
+.hs-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+.hs-stats div { background: #0006; border-radius: 10px; padding: 6px 4px; display: flex; flex-direction: column; }
+.hs-stats b { font-size: 1.15em; }
+.hs-stats small { color: var(--muted); font-size: .72em; }
+.hs-types { font-size: .82em; color: var(--muted); margin: 10px 0 4px; }
+.curve { display: flex; gap: 6px; align-items: flex-end; height: 92px; width: 100%; padding: 4px 6px 0; background: #0005; border-radius: 10px; }
+.curve-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.curve-bar { width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: linear-gradient(#8fd0ff, #1b4db5); }
+.curve-n { font-size: .72em; font-weight: 600; min-height: 1.1em; }
+.curve-c { font-size: .72em; color: var(--muted); padding: 2px 0; }
+.hs-info h4 { margin: 14px 0 4px; color: var(--gold); align-self: flex-start; }
+.hs-tips { text-align: left; margin: 0 0 14px; padding-left: 18px; font-size: .86em; line-height: 1.5; }
+.hs-tips b { color: #ffe08a; }
+.hs-deck { background: #0c0306aa; border: 2px solid var(--line); border-radius: 18px; padding: 12px 16px 18px; }
+.hs-deck h3 { margin: 4px 0 12px; }
+.hs-deck h3 small { font-size: .6em; font-weight: 400; }
+.hs-cards { justify-content: flex-start; gap: 26px 18px; }
+.hs-cards .card { font-size: 15px; }
+
+@media (max-width: 1000px) {
+  .hs-tabs { grid-template-columns: repeat(2, 1fr); }
+  .hs-detail { grid-template-columns: 1fr; }
+  .hs-info { position: static; }
+  .hs-cards { justify-content: center; }
+}

@@ -81,25 +81,62 @@ function resumeRun() {
 }
 
 /* ============================== เลือกฮีโร่ ============================== */
-function showHeroSelect() {
+// กราฟค่าร่าย (0 ถึง 7+) ของเด็ค
+function manaCurveHTML(ids) {
+  const bins = Array(8).fill(0);
+  ids.forEach(id => { bins[Math.min(7, CARDS[id].cost)]++; });
+  const max = Math.max(1, ...bins);
+  return `<div class="curve">${bins.map((n, i) => `
+    <div class="curve-col" title="ค่าร่าย ${i}${i === 7 ? '+' : ''}: ${n} ใบ">
+      <span class="curve-n">${n || ''}</span>
+      <div class="curve-bar" style="height:${(n / max) * 100}%"></div>
+      <span class="curve-c">${i}${i === 7 ? '+' : ''}</span>
+    </div>`).join('')}</div>`;
+}
+
+function showHeroSelect(sel) {
   const heroes = Object.values(HEROES);
+  const h = HEROES[sel] || heroes[0];
+  const types = { minion: 0, spell: 0, trap: 0 };
+  h.deck.forEach(id => { types[CARDS[id].type]++; });
+  const avg = (h.deck.reduce((s, id) => s + CARDS[id].cost, 0) / h.deck.length).toFixed(1);
   setScreen(`
-    <div class="screen">
+    <div class="screen hero-select">
       <header class="s-head"><h2>เลือกฮีโร่ของคุณ</h2><p>ฮีโร่แต่ละคนมีเด็คพื้นฐาน 10 ใบ แล้วคุณจะได้เลือกการ์ดเพิ่มอีก 5 ใบ</p></header>
-      <div class="hero-grid">
-        ${heroes.map(h => `
-          <div class="hero-card" data-hero="${h.id}">
-            ${artHTML('heroes', h.id, h.emoji)}
-            <h3>${h.name}</h3><small>${h.title}</small>
-            <p>${h.desc}</p>
-            <ul class="mini-deck">${deckSummary(h.deck).map(([id, n]) => `<li><span class="mc">${CARDS[id].cost}</span>${CARDS[id].name}${n > 1 ? ` ×${n}` : ''}</li>`).join('')}</ul>
-            <button class="btn primary">เลือก ${h.name}</button>
-          </div>`).join('')}
-      </div>
+      <nav class="hs-tabs">
+        ${heroes.map(x => `
+          <button class="hs-tab ${x.id === h.id ? 'active' : ''}" data-view="${x.id}">
+            ${artHTML('heroes', x.id, x.emoji)}
+            <span><b>${x.name}</b><small>${x.title}</small></span>
+          </button>`).join('')}
+      </nav>
+      <section class="hs-detail">
+        <aside class="hs-info">
+          <div class="hs-portrait">${artHTML('heroes', h.id, h.emoji)}</div>
+          <h3>${h.name}</h3>
+          <small class="muted">${h.title}</small>
+          <p class="hs-desc">${h.desc}</p>
+          <div class="hs-stats">
+            <div><b>❤️ ${playerMaxHp({ bonusHp: 0, relics: [] })}</b><small>HP เริ่มต้น</small></div>
+            <div><b>🃏 ${h.deck.length}</b><small>การ์ดในเด็ค</small></div>
+            <div><b>💎 ${avg}</b><small>ค่าร่ายเฉลี่ย</small></div>
+          </div>
+          <div class="hs-types">😈 มินเนี่ยน ${types.minion} • ✨ เวทมนตร์ ${types.spell}${types.trap ? ` • 🪤 กับดัก ${types.trap}` : ''}</div>
+          ${manaCurveHTML(h.deck)}
+          ${h.tips ? `<h4>💡 วิธีเล่น</h4><ul class="hs-tips">${h.tips.map(t => `<li>${t}</li>`).join('')}</ul>` : ''}
+          <button class="btn primary big" data-pick="${h.id}">เลือก ${h.name} →</button>
+        </aside>
+        <div class="hs-deck">
+          <h3>🃏 เด็คเริ่มต้น <small class="muted">(ชี้การ์ดค้างไว้เพื่อดูคำอธิบายและคอมโบ)</small></h3>
+          <div class="card-grid hs-cards">${deckSummary(h.deck).map(([id, n]) => cardHTML(CARDS[id], { extra: n > 1 ? `<div class="count">×${n}</div>` : '' })).join('')}</div>
+        </div>
+      </section>
       <div class="bar"><button class="btn ghost" data-act="back">← กลับ</button></div>
     </div>`, e => {
-    const hid = e.target.closest('[data-hero]')?.dataset.hero;
-    if (hid) { RUN = newRun(hid); save(); showDraft(); }
+    const view = e.target.closest('[data-view]')?.dataset.view;
+    const pick = e.target.closest('[data-pick]')?.dataset.pick;
+    if (view) { if (view !== h.id) showHeroSelect(view); }
+    else if (pick) { RUN = newRun(pick); save(); showDraft(); }
     else if (e.target.closest('[data-act="back"]')) showTitle();
   });
 }

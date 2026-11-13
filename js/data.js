@@ -699,16 +699,20 @@ function sampleCards(n, ids = POOL) {
 const HEROES = {
   blitzo: { id: 'blitzo', name: 'Blitzø', title: 'บอสแห่ง I.M.P.', emoji: '🔫',
     desc: 'สายบุก — Charge, ยิงกระจาย และบัฟทีม I.M.P.',
-    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'hellfire_bolt', 'hellfire_bolt', 'brimstone_shot', 'blitzo', 'bullet_storm', 'office_meeting'] },
+    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'hellfire_bolt', 'hellfire_bolt', 'brimstone_shot', 'blitzo', 'bullet_storm', 'office_meeting'],
+    tips: ['Blitzø มี <b>Charge</b> ลงแล้วตีหน้าบอสได้ทันที', 'Office Meeting บัฟมินเนี่ยน I.M.P. ทั้งกระดาน +2/+2', 'หา Stolas มาคอมโบ — Blitzø ได้ <b>Windfury</b> ตี 2 ครั้ง'] },
   moxxie: { id: 'moxxie', name: 'Moxxie', title: 'มือปืนนักวางแผน', emoji: '🎯',
     desc: 'สายควบคุม — กับดัก, ยิงมินเนี่ยนศัตรู และตั้งรับ',
-    deck: ['imp_grunt', 'imp_bouncer', 'imp_bouncer', 'hellfire_bolt', 'brimstone_shot', 'brimstone_shot', 'hellmart_snack', 'moxxie', 'ambush', 'decoy'] },
+    deck: ['imp_grunt', 'imp_bouncer', 'imp_bouncer', 'hellfire_bolt', 'brimstone_shot', 'brimstone_shot', 'hellmart_snack', 'moxxie', 'ambush', 'decoy'],
+    tips: ['วางกับดัก Ambush / Decoy Imp ไว้ก่อนจบเทิร์นเพื่อตั้งรับ', 'ใช้ Brimstone Shot และ Moxxie เก็บมินเนี่ยนศัตรูทีละตัว', 'หา Millie มาคอมโบ — Moxxie ยิง 4 ดาเมจแทน 2'] },
   millie: { id: 'millie', name: 'Millie', title: 'นักสู้สายลุย', emoji: '🪓',
     desc: 'สายบัฟ — Rush, บัฟมินเนี่ยนให้ใหญ่แล้วบดขยี้',
-    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'imp_brute', 'hellfire_bolt', 'millie', 'sallie_may', 'sinful_strength', 'sinful_strength'] },
+    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'imp_brute', 'hellfire_bolt', 'millie', 'sallie_may', 'sinful_strength', 'sinful_strength'],
+    tips: ['Sinful Strength บัฟมินเนี่ยน <b>Rush</b> แล้วลุยได้ทันที', 'Millie + Sallie May คอมโบพี่น้อง ได้ +2/+1 ทั้งคู่', 'หา Moxxie มาคอมโบ — Millie ได้ +2/+2 และ <b>Lifesteal</b>'] },
   loona: { id: 'loona', name: 'Loona', title: 'Hellhound ขี้หงุดหงิด', emoji: '🐺',
     desc: 'สายฝูง — เรียก Hellhound จำนวนมาก โตขึ้นเมื่อเพื่อนตาย',
-    deck: ['imp_grunt', 'imp_bouncer', 'hellfire_bolt', 'brimstone_shot', 'hellmart_snack', 'loona', 'hellhound_pup', 'hellhound_pup', 'fierce_hound', 'pack_howl'] },
+    deck: ['imp_grunt', 'imp_bouncer', 'hellfire_bolt', 'brimstone_shot', 'hellmart_snack', 'loona', 'hellhound_pup', 'hellhound_pup', 'fierce_hound', 'pack_howl'],
+    tips: ['Hellhound Pup ตายแล้วบัฟ Hellhound ตัวอื่น +2/+1', 'Fierce Hellhound โตขึ้นทุกครั้งที่เพื่อนตาย — ยิ่งแลกยิ่งแรง', 'Den Mother / Hellhound Breeder / Full Moon เข้ากับสายนี้มาก'] },
 };
 
 /* =============================== บอส =============================== */
