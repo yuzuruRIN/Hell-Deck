@@ -92,34 +92,39 @@ const minionsAtLeast = n => (g, o) => g.mins(o).length >= n;
 const canRecruit = (g, o) => g.mins(o).length < MAX_BOARD && g.P(o).deck.some(h => h.card.type === 'minion');
 
 /* คอมโบ: ถ้ามีตัวละครคู่หู (partnerId) อยู่บนบอร์ด → แสดงป้ายคอมโบ แล้วทำ fn(partner) */
-function combo(g, o, self, partnerId, label, fn) {
-  const p = g.mins(o).find(m => m.id === partnerId && m !== self);
-  if (!p) return false;
+// each = true → เรียก fn(p, first) กับคู่หู "ทุกตัว" ที่อยู่บนบอร์ด (เช่น มี Moxxie 2 ตัว ก็ได้ผลทั้ง 2 ตัว)
+//          first = true เฉพาะตัวแรก ใช้กันไม่ให้ผลที่ตัวเองได้รับซ้อนกันหลายรอบ
+function combo(g, o, self, partnerId, label, fn, each = false) {
+  const ps = g.mins(o).filter(m => m.id === partnerId && m !== self);
+  if (!ps.length) return false;
   g.combo(label);
-  fn(p);
+  if (each) ps.forEach((p, i) => fn(p, i === 0)); else fn(ps[0]);
   return true;
 }
 /* คอมโบสองทาง: การ์ดประกาศ comboLabel + comboFx(g, o, self, partner) แล้ว battlecry เรียก selfCombo
-   ถ้าลงการ์ดนี้ทีหลัง → battlecry ทำคอมโบ / ถ้าลงคู่หูทีหลัง → engine เรียก comboFx ของการ์ดนี้ให้ (ครั้งเดียวต่อตัว) */
+   ถ้าลงการ์ดนี้ทีหลัง → battlecry ทำคอมโบ / ถ้าลงคู่หูทีหลัง → engine เรียก comboFx ของการ์ดนี้ให้ (ครั้งเดียวต่อตัว)
+   comboEach(g, o, self, partner) = ส่วนที่ให้ผลกับคู่หู — ใช้กับคู่หูตัวที่ 2, 3, ... ที่อยู่บนบอร์ดด้วย */
 function selfCombo(g, o, s) {
   const c = s.card;
   if (s.comboUsed) return false;
-  return (COMBO_WITH[c.id] || []).some(pid => combo(g, o, s, pid, c.comboLabel, p => { s.comboUsed = true; c.comboFx(g, o, s, p); }));
+  return (COMBO_WITH[c.id] || []).some(pid => combo(g, o, s, pid, c.comboLabel, (p, first) => {
+    if (first) { s.comboUsed = true; c.comboFx(g, o, s, p); } else if (c.comboEach) c.comboEach(g, o, s, p);
+  }, true));
 }
 function giveWindfury(m) { if (!m.kw.windfury) { m.kw.windfury = true; m.attacks++; } }
 // Stolitz — Blitzø + Stolas (ลงใบไหนก่อนก็ได้)
 function stolitz(g, o, s) {
   const other = s.id === 'blitzo' ? 'stolas' : 'blitzo';
-  combo(g, o, s, other, '💞 Stolitz! Blitzø + Stolas', p => {
-    const b = s.id === 'blitzo' ? s : p, st = s.id === 'stolas' ? s : p;
-    g.buff(b, 2, 2); g.buff(st, 2, 2); giveWindfury(b);
-  });
+  combo(g, o, s, other, '💞 Stolitz! Blitzø + Stolas', (p, first) => {
+    g.buff(p, 2, 2); if (p.id === 'blitzo') giveWindfury(p);
+    if (first) { g.buff(s, 2, 2); if (s.id === 'blitzo') giveWindfury(s); }
+  }, true);
 }
 // คู่ที่ได้บัฟเท่ากันทั้งคู่
 function pairBuff(g, o, s, partnerId, label, a, h, shield) {
-  combo(g, o, s, partnerId, label, p => {
-    [s, p].forEach(m => { g.buff(m, a, h); if (shield) m.kw.shield = true; });
-  });
+  combo(g, o, s, partnerId, label, (p, first) => {
+    (first ? [s, p] : [p]).forEach(m => { g.buff(m, a, h); if (shield) m.kw.shield = true; });
+  }, true);
 }
 // Cherub Trio — Collin + Keenie + Cletus
 const CHERUB_TRIO = ['collin', 'keenie', 'cletus'];
@@ -141,9 +146,13 @@ S('hellmart_snack', 'Hellmart Snack', 1, { basic: 1, emoji: '🍟', text: 'ฟ�
 
 /* ============================ ตัวละครหลัก (ตำนาน) ============================ */
 // ---- ทีม I.M.P. ----
-M('blitzo', 'Blitzø', 4, 3, 3, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], kw: ['charge'], emoji: '🔫',
-  text: '<b>Charge</b>. <b>Battlecry:</b> มินเนี่ยน I.M.P. อื่นฝ่ายเรา +1/+1<br><i>คอมโบ Stolas:</i> ทั้งคู่ +2/+2 และ Blitzø ได้ <b>Windfury</b>',
-  battlecry: (g, o, t, s) => { g.mins(o).forEach(m => { if (m !== s && hasTag(m, 'I.M.P.')) g.buff(m, 1, 1); }); stolitz(g, o, s); } });
+M('blitzo', 'Blitzø', 5, 3, 3, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], kw: ['charge'], emoji: '🔫',
+  text: '<b>Charge</b>. <b>Battlecry:</b> ยิง 1 ดาเมจใส่มินเนี่ยนศัตรูทั้งหมด และมินเนี่ยน I.M.P. อื่นฝ่ายเรา +1/+1<br><i>คอมโบ Stolas:</i> ทั้งคู่ +2/+2 และ Blitzø ได้ <b>Windfury</b>',
+  battlecry: (g, o, t, s) => {
+    g.mins(g.opp(o)).slice().forEach(m => g.dmg(m, 1, s));
+    g.mins(o).forEach(m => { if (m !== s && hasTag(m, 'I.M.P.')) g.buff(m, 1, 1); });
+    stolitz(g, o, s);
+  } });
 M('moxxie', 'Moxxie', 3, 2, 4, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], emoji: '🎯', target: 'enemyMinion', ai: 'dmg', aiN: 2,
   text: '<b>Battlecry:</b> ทำ 2 ดาเมจกับมินเนี่ยนศัตรู<br><i>คอมโบ Millie:</i> ทำ 4 ดาเมจแทน',
   battlecry: (g, o, t, s) => { const c = combo(g, o, s, 'millie', '💕 Moxxie + Millie', () => {}); if (t) g.dmg(t, c ? 4 : 2, s); } });
@@ -159,7 +168,7 @@ M('loona', 'Loona', 3, 3, 2, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Hell
 // ---- ครอบครัว / คนรอบตัว Blitzø ----
 M('barbie_wire', 'Barbie Wire', 4, 3, 5, { pool: 1, rar: 'legendary', tags: ['Imp'], emoji: '🎀', target: 'friendlyMinion', ai: 'buff',
   text: '<b>Battlecry:</b> ให้มินเนี่ยนฝ่ายเรา <b>Taunt</b> และ <b>Lifesteal</b><br><i>คอมโบ Blitzø (ฝาแฝด):</i> ทั้งคู่ +2/+2',
-  comboLabel: '👯 ฝาแฝด Blitzø + Barbie', comboFx: (g, o, s, p) => { g.buff(s, 2, 2); g.buff(p, 2, 2); },
+  comboLabel: '👯 ฝาแฝด Blitzø + Barbie', comboEach: (g, o, s, p) => g.buff(p, 2, 2), comboFx: (g, o, s, p) => { g.buff(s, 2, 2); g.buff(p, 2, 2); },
   battlecry: (g, o, t, s) => { if (t) { t.kw.taunt = true; t.kw.lifesteal = true; } selfCombo(g, o, s); } });
 M('fizzarolli', 'Fizzarolli', 4, 2, 4, { pool: 1, rar: 'legendary', tags: ['Sin', 'Imp'], kw: ['taunt', 'shield'], emoji: '🤡',
   text: '<b>Taunt</b>. <b>Divine Shield</b>. <b>Deathrattle:</b> เพิ่ม Robo Fizz เข้ามือ<br><i>คอมโบ Blitzø (เพื่อนวัยเด็ก):</i> จั่ว 2 ใบ',
@@ -173,7 +182,7 @@ M('verosika', 'Verosika Mayday', 4, 3, 4, { pool: 1, rar: 'legendary', tags: ['S
   onTurnEnd: (g, o, s) => { const t = rnd(g.mins(o).filter(m => m !== s)); if (t) g.buff(t, 1, 1); } });
 M('cash_buckzo', 'Cash Buckzo', 4, 4, 3, { pool: 1, rar: 'rare', tags: ['Imp'], emoji: '🎩',
   text: '<b>Battlecry:</b> ทำ 2 ดาเมจกับศัตรูแบบสุ่ม<br><i>คอมโบ Blitzø (พ่อ):</i> Blitzø ได้ +3 พลังโจมตี',
-  comboLabel: '😤 ปมพ่อ Cash + Blitzø', comboFx: (g, o, s, p) => g.buff(p, 3, 0),
+  comboLabel: '😤 ปมพ่อ Cash + Blitzø', comboEach: (g, o, s, p) => g.buff(p, 3, 0), comboFx: (g, o, s, p) => g.buff(p, 3, 0),
   battlecry: (g, o, t, s) => { const x = g.randomEnemy(o); if (x) g.dmg(x, 2, s); selfCombo(g, o, s); } });
 
 // ---- Goetia ----
@@ -212,7 +221,7 @@ M('striker', 'Striker', 3, 3, 3, { pool: 1, rar: 'legendary', tags: ['Imp'], kw:
   battlecry: (g, o, t, s) => selfCombo(g, o, s) });
 M('crimson', 'Crimson', 6, 5, 5, { pool: 1, rar: 'legendary', tags: ['Imp'], emoji: '🎩',
   text: '<b>Battlecry:</b> เรียก Crimson Thug 2/2 สองตัว<br><i>คอมโบ Moxxie (ลูกชาย):</i> Moxxie ได้ +3/+3',
-  comboLabel: '👨‍👦 Crimson + Moxxie', comboFx: (g, o, s, p) => g.buff(p, 3, 3),
+  comboLabel: '👨‍👦 Crimson + Moxxie', comboEach: (g, o, s, p) => g.buff(p, 3, 3), comboFx: (g, o, s, p) => g.buff(p, 3, 3),
   battlecry: (g, o, t, s) => { g.summon(o, 'c_thug'); g.summon(o, 'c_thug'); selfCombo(g, o, s); } });
 M('vortex', 'Vortex', 4, 3, 5, { pool: 1, rar: 'legendary', tags: ['Hellhound'], kw: ['taunt'], emoji: '🛡️',
   text: '<b>Taunt</b>. <b>Battlecry:</b> ได้ +1/+1 ต่อ Hellhound อื่นฝ่ายเรา<br><i>คอมโบ Loona:</i> Loona ได้ +2/+2',
@@ -220,12 +229,12 @@ M('vortex', 'Vortex', 4, 3, 5, { pool: 1, rar: 'legendary', tags: ['Hellhound'],
     const n = g.mins(o).filter(m => m !== s && hasTag(m, 'Hellhound')).length; if (n) g.buff(s, n, n);
     selfCombo(g, o, s);
   },
-  comboLabel: '🐺 เพื่อนซี้ Vortex + Loona', comboFx: (g, o, s, p) => g.buff(p, 2, 2) });
+  comboLabel: '🐺 เพื่อนซี้ Vortex + Loona', comboEach: (g, o, s, p) => g.buff(p, 2, 2), comboFx: (g, o, s, p) => g.buff(p, 2, 2) });
 
 // ---- Sins ----
 M('asmodeus', 'Asmodeus', 7, 6, 6, { pool: 1, rar: 'legendary', tags: ['Sin'], kw: ['lifesteal'], emoji: '🔥',
   text: '<b>Lifesteal</b>. <b>Battlecry:</b> ฟื้นฟู 6 HP ให้ฮีโร่<br><i>คอมโบ Fizzarolli (คนรัก):</i> ทั้งคู่ +3/+3 และ <b>Divine Shield</b>',
-  comboLabel: '❤️‍🔥 Ozzie + Fizz', comboFx: (g, o, s, p) => [s, p].forEach(m => { g.buff(m, 3, 3); m.kw.shield = true; }),
+  comboLabel: '❤️‍🔥 Ozzie + Fizz', comboEach: (g, o, s, p) => { g.buff(p, 3, 3); p.kw.shield = true; }, comboFx: (g, o, s, p) => [s, p].forEach(m => { g.buff(m, 3, 3); m.kw.shield = true; }),
   battlecry: (g, o, t, s) => { g.heal(g.hero(o), 6); selfCombo(g, o, s); } });
 M('mammon', 'Mammon', 7, 5, 7, { pool: 1, rar: 'legendary', tags: ['Sin'], emoji: '💰',
   text: '<b>Battlecry:</b> ทำดาเมจกับฮีโร่ศัตรูเท่ากับจำนวนการ์ดในมือคุณ (สูงสุด 7)<br><i>คอมโบ Fizzarolli:</i> ขโมยการ์ดสุ่ม 1 ใบจากมือศัตรู',
@@ -253,7 +262,7 @@ M('glam', 'Glam', 3, 3, 2, { pool: 1, rar: 'rare', tags: ['Imp'], emoji: '💄',
   battlecry: (g, o, t, s) => pairBuff(g, o, s, 'glitz', '✨ Glitz & Glam!', 2, 2, true) });
 M('sallie_may', 'Sallie May', 2, 2, 2, { pool: 1, rar: 'rare', tags: ['Imp'], kw: ['rush'], emoji: '🔪',
   text: '<b>Rush</b><br><i>คอมโบ Millie (พี่สาว):</i> ทั้งคู่ +2/+1',
-  comboLabel: '🌾 พี่น้อง Millie + Sallie May', comboFx: (g, o, s, p) => { g.buff(s, 2, 1); g.buff(p, 2, 1); },
+  comboLabel: '🌾 พี่น้อง Millie + Sallie May', comboEach: (g, o, s, p) => g.buff(p, 2, 1), comboFx: (g, o, s, p) => { g.buff(s, 2, 1); g.buff(p, 2, 1); },
   battlecry: (g, o, t, s) => selfCombo(g, o, s) });
 M('collin', 'Collin', 2, 2, 2, { pool: 1, rar: 'rare', tags: ['Cherub'], kw: ['shield'], emoji: '👼',
   text: '<b>Divine Shield</b><br><i>คอมโบ Cherub Trio:</i> ถ้ามี Collin, Keenie, Cletus ครบ ทั้งสามได้ +3/+3',
@@ -346,20 +355,20 @@ M('imp_recruiter', 'I.M.P. Recruiter', 2, 2, 2, { pool: 1, tags: ['I.M.P.', 'Imp
   battlecry: (g, o) => { g.shuffleIn(o, 'imp_grunt', 2); g.draw(o, 1); } });
 M('hound_breeder', 'Hellhound Breeder', 3, 2, 3, { pool: 1, tags: ['Hellhound'], emoji: '🐕',
   text: '<b>Deathrattle:</b> สับ Hellhound Pup 2 ใบเข้าเด็คของคุณ และเรียก Hellhound 1 ตัวออกจากเด็ค',
-  deathrattle: (g, o) => { g.shuffleIn(o, 'hellhound_pup', 2); g.recruit(o, c => c.tags.includes('Hellhound')); } });
+  deathrattle: (g, o, m) => { g.shuffleIn(o, 'hellhound_pup', 2, { src: m.uid }); g.recruit(o, c => c.tags.includes('Hellhound')); } });
 S('banish_portal', 'Banishing Portal', 3, { pool: 1, rar: 'rare', tags: ['Goetia'], emoji: '🕳️', target: 'enemyMinion', ai: 'remove',
   text: 'สับมินเนี่ยนศัตรู 1 ตัวกลับเข้าเด็คของเจ้าของ',
   cast: (g, o, t) => g.tuck(t, t.owner, o) });
 // ---- วนเด็ค: Deathrattle สับเข้าเด็ค / จั่วแล้วทำงาน / ได้ประโยชน์จากการสับ ----
 M('reborn_imp', 'Reborn Imp', 2, 2, 1, { pool: 1, tags: ['Imp'], emoji: '♻️',
   text: '<b>Deathrattle:</b> สับสำเนาตัวนี้เข้าเด็คของคุณ โดยได้ +1/+1 สะสมไปเรื่อยๆ ทุกรอบ',
-  deathrattle: (g, o, m) => { const b = m.bonus || { a: 0, h: 0 }; g.shuffleIn(o, 'reborn_imp', 1, { bonus: { a: b.a + 1, h: b.h + 1 } }); } });
+  deathrattle: (g, o, m) => { const b = m.bonus || { a: 0, h: 0 }; g.shuffleIn(o, 'reborn_imp', 1, { bonus: { a: b.a + 1, h: b.h + 1 }, src: m.uid }); } });
 M('lost_sinner', 'Lost Sinner', 2, 2, 2, { pool: 1, tags: ['Sin'], emoji: '👤',
   text: '<b>Deathrattle:</b> สับ Lost Soul 2 ใบเข้าเด็คของคุณ',
-  deathrattle: (g, o) => g.shuffleIn(o, 'lost_soul', 2) });
+  deathrattle: (g, o, m) => g.shuffleIn(o, 'lost_soul', 2, { src: m.uid }) });
 M('robo_factory', 'Robo Fizz Factory', 4, 1, 5, { pool: 1, tags: ['Imp'], kw: ['taunt'], emoji: '🏭',
   text: '<b>Taunt</b>. <b>Deathrattle:</b> สับ Robo Fizz 3 ใบเข้าเด็คของคุณ',
-  deathrattle: (g, o) => g.shuffleIn(o, 'robo_fizz', 3) });
+  deathrattle: (g, o, m) => g.shuffleIn(o, 'robo_fizz', 3, { src: m.uid }) });
 M('soul_archivist', 'Soul Archivist', 3, 2, 4, { pool: 1, rar: 'rare', tags: ['Goetia'], emoji: '📚',
   text: 'ทุกครั้งที่มีการ์ดถูกสับเข้าเด็คของคุณ ได้ +1/+1 ต่อใบ',
   onShuffle: (g, o, s, n) => g.buff(s, n, n) });
@@ -389,7 +398,7 @@ S('stolas_prophecy', "Stolas's Prophecy", 5, { pool: 1, rar: 'rare', tags: ['Goe
   cast: (g, o) => g.spellDmg(o, g.hero(g.opp(o)), Math.min(12, g.P(o).shuffled)) });
 T('soul_recycler', 'Soul Recycler', 2, { pool: 1, rar: 'rare', emoji: '🔁',
   text: '<b>กับดัก:</b> เมื่อมินเนี่ยนฝ่ายเราตาย สับมันกลับเข้าเด็คของคุณพร้อม +2/+2',
-  trap: { on: 'death', fire: (g, o, ev) => g.shuffleIn(o, ev.minion.id, 1, { bonus: { a: 2, h: 2 } }) } });
+  trap: { on: 'death', fire: (g, o, ev) => g.shuffleIn(o, ev.minion.id, 1, { bonus: { a: 2, h: 2 }, src: ev.minion.uid }) } });
 // ---- ค่าร่าย: ลดของเรา / เพิ่มของศัตรู ----
 S('hellmart_sale', 'Hellmart Sale', 2, { pool: 1, rar: 'rare', emoji: '🏷️', aiCond: (g, o) => g.P(o).hand.length >= 3,
   text: 'การ์ดทุกใบในมือคุณลดค่าร่าย 1',
@@ -486,7 +495,7 @@ M('s_striker', 'Striker', 3, 3, 2, { boss: 'striker', tags: ['Imp'], kw: ['rush'
   comboLabel: '🐎 Striker ขึ้นม้า!', comboFx: (g, o, s) => { g.buff(s, 2, 0); s.kw.charge = true; } });
 M('s_drifter', 'Tumbleweed Drifter', 1, 1, 1, { boss: 'striker', tags: ['Imp'], emoji: '🌵',
   text: '<b>Deathrattle:</b> สับ Hired Gun 1 ใบเข้าเด็คของคุณ',
-  deathrattle: (g, o) => g.shuffleIn(o, 's_hired_gun', 1) });
+  deathrattle: (g, o, m) => g.shuffleIn(o, 's_hired_gun', 1, { src: m.uid }) });
 S('s_reload', 'Reload', 1, { boss: 'striker', emoji: '🔄', text: 'สับ Sniper Shot 2 ใบเข้าเด็คของคุณ แล้วจั่วการ์ด 1 ใบ',
   cast: (g, o) => { g.shuffleIn(o, 's_sniper', 2); g.draw(o, 1); } });
 S('s_saddle', 'Saddle Up', 2, { boss: 'striker', emoji: '🏇', aiCond: canRecruit, text: 'เรียกมินเนี่ยน 1 ตัวออกจากเด็คของคุณ',
@@ -505,7 +514,7 @@ M('v_groupie', 'Succubus Groupie', 2, 2, 2, { boss: 'verosika', emoji: '💋',
   comboLabel: '🎤 แฟนคลับตัวยง!', comboFx: (g, o, s) => { g.buff(s, 1, 1); s.kw.shield = true; },
   battlecry: (g, o, t, s) => { g.heal(g.hero(o), 3); selfCombo(g, o, s); } });
 M('v_fan', 'Obsessed Fan', 1, 1, 2, { boss: 'verosika', emoji: '😍', text: '<b>Deathrattle:</b> สับ Obsessed Fan 1 ใบเข้าเด็คของคุณ',
-  deathrattle: (g, o) => g.shuffleIn(o, 'v_fan', 1) });
+  deathrattle: (g, o, m) => g.shuffleIn(o, 'v_fan', 1, { src: m.uid }) });
 M('v_manager', 'Tour Manager', 3, 2, 3, { boss: 'verosika', emoji: '📋', text: '<b>Battlecry:</b> สับ Encore! 1 ใบเข้าเด็คของคุณ แล้วจั่วการ์ด 1 ใบ',
   battlecry: (g, o) => { g.shuffleIn(o, 'v_encore', 1); g.draw(o, 1); } });
 S('v_tour', 'World Tour', 3, { boss: 'verosika', emoji: '🌍', aiCond: canRecruit, text: 'เรียกมินเนี่ยน 2 ตัวออกจากเด็คของคุณ',
@@ -633,10 +642,10 @@ M('as_dancer', "Ozzie's Dancer", 2, 2, 3, { boss: 'asmodeus', kw: ['lifesteal'],
 M('as_bouncer', 'Velvet Bouncer', 3, 3, 4, { boss: 'asmodeus', kw: ['taunt'], text: '<b>Taunt</b>' });
 M('as_fizz', 'Fizzarolli (Showtime)', 4, 3, 5, { boss: 'asmodeus', tags: ['Imp'], kw: ['taunt', 'shield'], emoji: '🤡',
   text: '<b>Taunt</b>. <b>Divine Shield</b><br><i>คอมโบ Asmodeus:</i> ทั้งคู่ +2/+2',
-  comboLabel: '❤️‍🔥 Ozzie + Fizz ออนสเตจ!', comboFx: (g, o, s, p) => { g.buff(s, 2, 2); g.buff(p, 2, 2); },
+  comboLabel: '❤️‍🔥 Ozzie + Fizz ออนสเตจ!', comboEach: (g, o, s, p) => g.buff(p, 2, 2), comboFx: (g, o, s, p) => { g.buff(s, 2, 2); g.buff(p, 2, 2); },
   battlecry: (g, o, t, s) => selfCombo(g, o, s) });
 M('as_fan', "Ozzie's Fan", 1, 1, 2, { boss: 'asmodeus', kw: ['lifesteal'], emoji: '🥰', text: '<b>Lifesteal</b>. <b>Deathrattle:</b> สับ Ozzie\'s Dancer 1 ใบเข้าเด็คของคุณ',
-  deathrattle: (g, o) => g.shuffleIn(o, 'as_dancer', 1) });
+  deathrattle: (g, o, m) => g.shuffleIn(o, 'as_dancer', 1, { src: m.uid }) });
 S('as_opening', 'Grand Opening', 5, { boss: 'asmodeus', emoji: '🎉', aiCond: canRecruit, text: 'เรียกมินเนี่ยน 2 ตัวออกจากเด็คของคุณ ทั้งคู่ได้ <b>Lifesteal</b>',
   cast: (g, o) => { [g.recruit(o), g.recruit(o)].forEach(m => { if (m) m.kw.lifesteal = true; }); } });
 S('as_forbidden', 'Forbidden Love', 4, { boss: 'asmodeus', emoji: '💌', target: 'enemyMinion', ai: 'remove',
@@ -735,6 +744,19 @@ function comboPartners(id) {
   for (const [k, v] of Object.entries(COMBO_WITH)) if (v.includes(id)) s.add(k);
   s.delete(id);
   return [...s].filter(x => CARDS[x]);
+}
+/* การ์ดที่มีโบนัสตามเงื่อนไข (ไม่ใช่คอมโบคู่หู) — ถ้าเงื่อนไขครบ การ์ดในมือจะมีกรอบระยิบระยับ */
+const tagOn = (tag, n = 1) => (g, o) => g.countTag(o, tag) >= n;
+const COND_READY = {
+  imp_phone: tagOn('I.M.P.'), contract_hit: tagOn('I.M.P.'), office_meeting: tagOn('I.M.P.'),
+  wrath_of_imps: tagOn('I.M.P.', 3), contract_payout: tagOn('I.M.P.', 2),
+  pentagram_strike: tagOn('Goetia'), full_moon: tagOn('Hellhound'), vortex: tagOn('Hellhound'), den_mother: (g, o) => canRecruit(g, o),
+  stolas_prophecy: (g, o) => g.P(o).shuffled >= 5, time_loop: (g, o) => g.P(o).played.length >= 3,
+};
+// 'combo' = คอมโบคู่หูจะทำงาน, 'cond' = โบนัสตามเงื่อนไขครบ, '' = ไม่มี
+function readyKind(g, o, c) {
+  if (comboReady(g, o, c)) return 'combo';
+  return COND_READY[c.id] && COND_READY[c.id](g, o) ? 'cond' : '';
 }
 // ถ้าลงการ์ดนี้ตอนนี้ คอมโบจะทำงานไหม
 function comboReady(g, o, c) {

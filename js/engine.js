@@ -136,6 +136,7 @@ class Game {
         this.draw(o, 1);
         continue;
       }
+      h.from = 'deck';
       this.toHand(o, h);
     }
   }
@@ -330,7 +331,7 @@ class Game {
     if (!m) return;
     m.atk = Math.max(0, m.atk + a);
     if (h) { m.maxHp += h; m.hp += h; }
-    this.fx('buff', m);
+    this.fx('buff', m, { a, h });
   }
   armor(o, n) { this.hero(o).armor += n; this.fx('armor', this.hero(o), n); }
   destroy(m) { if (m && m.kind === 'minion') m.destroyed = true; }
@@ -345,6 +346,7 @@ class Game {
     const from = this.mins(m.owner), i = from.indexOf(m);
     if (i < 0) return;
     if (this.mins(o).length >= MAX_BOARD) { m.destroyed = true; return; }
+    this.ui.onSteal && this.ui.onSteal(m);   // จำตำแหน่งเดิมไว้ให้แอนิเมชันย้ายฝั่ง
     from.splice(i, 1);
     m.owner = o;
     m.sleeping = true;
@@ -385,6 +387,7 @@ class Game {
     const extra = bonus ? ` (+${bonus.a}/+${bonus.h})` : opt.costDelta ? ` (ค่าร่าย ${opt.costDelta})` : '';
     this.log(`🔀 ${this.P(by).name} สับ ${CARDS[id].name}${n > 1 ? ` ×${n}` : ''}${extra} เข้าเด็ค${by !== o ? `ของ ${this.P(o).name}` : ''}`, id);
     this.fx('deck', this.hero(o), n);
+    this.ui.onShuffle && this.ui.onShuffle(o, id, n, opt.src);
     this.afterShuffle(o, by, n);
   }
   afterShuffle(o, by, n) {
@@ -398,6 +401,7 @@ class Game {
     p.deck.forEach((h, i) => { if (filter(h.card) && (bi < 0 || score(h.card) > score(p.deck[bi].card))) bi = i; });
     if (bi < 0) return null;
     const h = p.deck.splice(bi, 1)[0];
+    h.from = 'deck';
     if (!this.toHand(o, h)) return null;
     this.log(`🔎 ${p.name} ค้นเด็คได้ ${o === 0 ? h.card.name : 'การ์ด 1 ใบ'}`, o === 0 ? h.id : null);
     return h;
@@ -410,6 +414,7 @@ class Game {
     if (i < 0) return null;
     const h = p.deck.splice(i, 1)[0];
     const m = this.summon(o, h.id);
+    if (m) this.ui.onRecruit && this.ui.onRecruit(o, m);
     this.applyBonus(m, h);
     if (m) this.log(`📤 ${p.name} เรียก ${h.card.name} ออกจากเด็ค`, h.id);
     return m;
@@ -417,6 +422,7 @@ class Game {
   // ส่งมินเนี่ยนบนบอร์ดกลับเข้าเด็ค (ไม่นับว่าตาย) — toO = เด็คของใคร (ค่าเริ่มต้น = เจ้าของ)
   tuck(m, toO = m && m.owner, by = toO) {
     if (!m || m.kind !== 'minion' || !this.alive(m)) return;
+    this.ui.onShuffle && this.ui.onShuffle(toO, m.id, 1, m.uid);   // ก่อนเอาออกจากบอร์ด เพื่อให้ยังหาตำแหน่งได้
     const b = this.mins(m.owner);
     b.splice(b.indexOf(m), 1);
     this.insertDeck(toO, this.mkCard(m.id));
@@ -430,6 +436,7 @@ class Game {
     for (let k = 0; k < n && e.hand.length; k++) {
       const h = e.hand.splice(Math.floor(Math.random() * e.hand.length), 1)[0];
       this.insertDeck(o, h);
+      this.ui.onShuffle && this.ui.onShuffle(o, h.id, 1, `hand${e.o}`);
       this.log(`🧮 ${this.P(o).name} ยึด ${h.card.name} จากมือ ${e.name} เข้าเด็ค`, h.id);
       this.fx('deck', this.hero(o), 1);
     }

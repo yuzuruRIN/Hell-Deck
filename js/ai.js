@@ -76,6 +76,7 @@ async function aiTurn(g, ui) {
       if (t === false) continue;
       await ui.showEnemyPlay(h, t);
       if (ui.g !== g) return;
+      if (LEGEND_FX[h.card.id]) { Aim.stop(); await playEntrance(h.card, 1); if (ui.g !== g) return; }
       g.play(o, h.uid, t);
       ui.render();
       await ui.wait(1000);
@@ -94,6 +95,7 @@ async function aiTurn(g, ui) {
     const m = attackers[0];
     const t = aiPickAttack(g, m);
     if (!t) { tried.add(m.uid); continue; }
+    await ui.aim(m, t);
     await ui.animateAttack(m, t);
     if (!g.attack(m, t)) tried.add(m.uid);
     ui.render();

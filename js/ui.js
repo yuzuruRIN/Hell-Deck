@@ -142,6 +142,9 @@ const BattleUI = {
       onPlay: (o, h) => this.onPlay(o, h),
       onTrap: (o, c) => this.onTrap(o, c),
       onBurn: (o, h) => this.onBurn(o, h),
+      onShuffle: (o, id, n, src) => this.onShuffle(o, id, n, src),
+      onRecruit: (o, m) => this.onRecruit(o, m),
+      onSteal: m => this.onSteal(m),
       banner: t => this.banner(t),
     };
     $('#app').innerHTML = `
@@ -155,7 +158,7 @@ const BattleUI = {
           <div class="b-relics" id="bRelics"></div>
           <div class="b-log-head">📜 ประวัติการเล่น <small>(ชี้รายการเพื่อดูการ์ด)</small></div>
           <div class="b-log" id="bLog"></div>
-          <div class="b-help">คลิกหรือลากการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก • ชี้การ์ดค้างไว้เพื่อดูคอมโบ</div>
+          <div class="b-help">คลิก (หยิบ) หรือลากการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก • ชี้การ์ดค้างไว้เพื่อดูคอมโบ</div>
           <div class="b-speed" id="bSpeed">ความเร็ว: ${Object.entries(SPEEDS).map(([k, v]) => `<button class="btn small ${k === SPEED ? 'primary' : ''}" data-speed="${k}">${v.label}</button>`).join('')}</div>
           <button class="btn small ghost" id="bConcede">🏳️ ยอมแพ้</button>
         </aside>
@@ -168,6 +171,8 @@ const BattleUI = {
           <div class="row hero-row player" id="pHeroRow"></div>
           <div class="row hand player" id="pHand"></div>
           <button id="endTurn" class="end-turn">จบเทิร์น</button>
+          <div class="deck-pile enemy" id="eDeck"></div>
+          <div class="deck-pile player" id="pDeck"></div>
           <div id="bOverlay"></div>
         </main>
       </div>`;
@@ -186,22 +191,26 @@ const BattleUI = {
       if (this.g.over || !confirm('ยอมแพ้การต่อสู้นี้? (รันจะจบลง)')) return;
       this.g.hero(0).hp = 0; this.g.checkOver(); this.render();
     };
-    this.keyHandler = e => { if (e.key === 'Escape') this.cancel(); };
+    this.keyHandler = e => { if (e.key === 'Escape') { this.endCarry(null); this.cancel(); } };
+    this.enterAt = {};
+    this.handAt = null; this.eHandAt = null; this.lastDrawAt = 0; this.lastRecruitAt = 0; this.trapAt = [[], []];
     document.addEventListener('keydown', this.keyHandler);
 
     g.start();
+    this.busy = true;
     this.render();
-    if (g.current === 1) {
-      this.banner(`🎲 ${g.boss.name} เริ่มก่อน — คุณได้ 🪙 Hell Coin`);
-      this.busy = true;
-      this.render();
-      setTimeout(() => { if (this.g === g) this.enemyPhase(); }, 1600 * SPEEDS[SPEED].k);
-    } else {
-      this.banner(`🎲 คุณเริ่มก่อน! — ${g.boss.name} ได้ 🪙 Hell Coin`);
-    }
+    // อินโทร VS → โยนเหรียญ → เริ่มเทิร์นแรก
+    $('#bArena').classList.add('pregame');   // ซ่อนมือไว้ระหว่างอินโทร แล้วค่อยแจกการ์ด
+    playIntro(this).catch(e => console.error(e)).then(async () => {
+      if (this.g !== g) return;
+      await this.dealOpening();
+      if (this.g !== g) return;
+      if (g.current === 1) this.enemyPhase();
+      else { this.busy = false; this.render(); this.banner('⚔️ เทิร์นของคุณ'); }
+    });
   },
 
-  unmount() { document.removeEventListener('keydown', this.keyHandler); this.g = null; CardTip.hide(); },
+  unmount() { document.removeEventListener('keydown', this.keyHandler); this.endCarry(null); this.hideDeckTip(); this.g = null; CardTip.hide(); },
   wait(ms) { return wait(ms); },
 
   /* ---------- วาดหน้าจอ ---------- */
@@ -220,14 +229,30 @@ const BattleUI = {
     $('#pHeroRow').innerHTML = this.heroRowHTML(P, valid);
     $('#pHand').innerHTML = P.hand.map(h => {
       const playable = myTurn && !this.busy && g.canPlay(0, h);
-      // ตัวเลขค่าร่ายสีแดง = ยังลงไม่ได้ (เทิร์นศัตรู: เทียบกับมานาที่จะมีในเทิร์นหน้า)
-      const blocked = myTurn ? !g.canPlay(0, h) : g.cost(0, h) > Math.min(MAX_MANA, P.maxMana + 1);
-      const ready = myTurn && comboReady(g, 0, h.card);
-      const cls = [playable ? 'playable' : '', ready ? 'combo-ready' : '', this.sel?.mode === 'play' && this.sel.uid === h.uid ? 'selected' : ''].join(' ');
-      return cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus, blocked, cls, attrs: `data-hand="${h.uid}"`,
-        extra: ready ? '<div class="combo-badge">💞 คอมโบพร้อม!</div>' : '' });
+      const cost = g.cost(0, h);
+      // ตัวเลขค่าร่ายสีแดง = มานาไม่พอ เท่านั้น (เทิร์นศัตรู: เทียบกับมานาที่จะมีในเทิร์นหน้า)
+      const blocked = cost > (myTurn ? P.mana : Math.min(MAX_MANA, P.maxMana + 1));
+      // มานาพอแต่ลงไม่ได้ด้วยเหตุผลอื่น (ไม่มีเป้า / บอร์ดเต็ม / กับดักซ้ำ) → การ์ดสีเทา + บอกเหตุผล
+      const why = myTurn && !blocked ? g.whyNot(0, h) : '';
+      const ready = myTurn ? readyKind(g, 0, h.card) : '';
+      const cls = [playable ? 'playable' : '', why ? 'noplay' : '', ready ? `combo-ready ready-${ready}` : '', this.sel?.mode === 'play' && this.sel.uid === h.uid ? 'selected' : ''].join(' ');
+      return cardHTML(h.card, { cost, bonus: h.bonus, blocked, cls, attrs: `data-hand="${h.uid}"`,
+        extra: (ready === 'combo' ? '<div class="combo-badge">💞 คอมโบพร้อม!</div>' : ready === 'cond' ? '<div class="combo-badge cond">✨ เงื่อนไขครบ!</div>' : '') + (why ? `<div class="noplay-tag">🚫 ${why.split(' (')[0]}</div>` : '') });
     }).join('');
     $('#pHand').style.setProperty('--n', P.hand.length);
+    this.animateDraws(P, E);
+    this.animateSteals();
+    this.flushFx();
+    $('#eDeck').innerHTML = this.deckPileHTML(E);
+    $('#pDeck').innerHTML = this.deckPileHTML(P);
+    // มินเนี่ยนที่เพิ่งลง: เล่นเอฟเฟคหย่อนลงบอร์ด (ต่อเนื่องแม้ถูกวาดใหม่ระหว่างแอนิเมชัน)
+    const now = performance.now(), DROP = 520 * SPEEDS[SPEED].k;
+    document.querySelectorAll('#pBoard .unit, #eBoard .unit').forEach(el => {
+      const u = +el.dataset.uid;
+      if (this.enterAt[u] == null) this.enterAt[u] = now;
+      const t = now - this.enterAt[u];
+      if (t < DROP) { el.classList.add('enter'); el.style.setProperty('--drop', `${DROP}ms`); el.style.animationDelay = `${-t}ms`; }
+    });
 
     const btn = $('#endTurn');
     btn.disabled = !myTurn || this.busy;
@@ -239,14 +264,31 @@ const BattleUI = {
       ? P.relics.map(id => relicHTML(RELICS[id], { compact: true })).join('')
       : '<small class="muted">ยังไม่มีสมบัติ</small>';
 
-    if (g.over && !this.overFired) { this.overFired = true; setTimeout(() => this.showResult(), 1100); }
+    // ลูกศรเล็งเป้า: ตามเมาส์ระหว่างเลือกเป้าของเวท/Battlecry หรือเลือกเป้าโจมตี
+    const sel = this.sel;
+    if (sel && !this.busy) Aim.start(() => document.querySelector(sel.mode === 'play' ? `#pHand [data-hand="${sel.uid}"]` : `#bArena [data-uid="${sel.uid}"]`));
+    else if (Aim.live) Aim.stop();
+    if (g.over && !this.overFired) {
+      this.overFired = true;
+      this.busy = true;
+      (async () => {
+        await wait(450);
+        const row = $(g.winner === 0 ? '#eHeroRow' : '#pHeroRow');
+        if (row) await shatterHero(row);
+        if (this.g === g) this.showResult();
+      })();
+    }
   },
 
   heroRowHTML(p, valid) {
     const h = p.hero, g = this.g;
-    const traps = p.traps.map(t => p.o === 0
-      ? `<div class="trap-icon mine" data-trap="${t.uid}">🪤</div>`
-      : `<div class="trap-icon">❓</div>`).join('');
+    const ta = this.trapAt[p.o];
+    if (ta.length > p.traps.length) ta.length = p.traps.length;
+    const now = performance.now();
+    const trapCls = i => { const t = ta[i]; if (t == null || now - t > 900) return ''; return `trap-new" style="animation-delay:${Math.round(t - now)}ms`; };
+    const traps = p.traps.map((t, i) => p.o === 0
+      ? `<div class="trap-icon mine ${trapCls(i)}" data-trap="${t.uid}">🪤</div>`
+      : `<div class="trap-icon ${trapCls(i)}">❓</div>`).join('');
     const crystals = Array.from({ length: MAX_MANA }, (_, i) =>
       `<i class="gem ${i < p.mana ? 'full' : i < p.maxMana ? 'spent' : ''}"></i>`).join('');
     const target = valid.has(h.uid) ? 'targetable' : '';
@@ -261,7 +303,7 @@ const BattleUI = {
       <div class="h-stats">
         <div class="mana-txt">💎 ${p.mana}/${p.maxMana}</div>
         <div class="gems">${crystals}</div>
-        <div class="meta">🂠 เด็ค ${p.deck.length} &nbsp; <span class="hand-n ${p.hand.length >= MAX_HAND ? 'full' : p.hand.length >= MAX_HAND - 2 ? 'near' : ''}"
+        <div class="meta"><span class="hand-n ${p.hand.length >= MAX_HAND ? 'full' : p.hand.length >= MAX_HAND - 2 ? 'near' : ''}"
           title="ถือการ์ดได้สูงสุด ${MAX_HAND} ใบ — ใบที่จั่วเกินจะถูกเผาทิ้ง">✋ ${p.hand.length}/${MAX_HAND}</span>${p.fatigue ? ` &nbsp; Fatigue ${p.fatigue}` : ''}${p.burned ? ` &nbsp; 🔥 เผาแล้ว ${p.burned}` : ''}</div>
         ${p.o === 0 && p.hand.length >= MAX_HAND ? '<div class="hand-warn">🔥 มือเต็ม! ใบที่จั่วต่อไปจะถูกเผา</div>' : ''}
         ${p.o === 0 && p.shuffled ? `<div class="meta" title="จำนวนการ์ดที่คุณสับเข้าเด็คในเกมนี้ (ใช้กับ Stolas's Prophecy)">🔀 สับแล้ว ${p.shuffled}</div>` : ''}
@@ -295,6 +337,8 @@ const BattleUI = {
   onHover(e) {
     const g = this.g;
     if (!g) return;
+    const pile = e.target.closest('[data-deck]');
+    if (pile) this.showDeckTip(pile, g.P(+pile.dataset.deck)); else this.hideDeckTip();
     const box = $('#bPreview');
     const handEl = e.target.closest('[data-hand]');
     const entEl = e.target.closest('[data-uid]');
@@ -303,7 +347,7 @@ const BattleUI = {
     let html = '';
     if (handEl) {
       const h = g.P(0).hand.find(x => x.uid === +handEl.dataset.hand);
-      if (h) html = cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus }) + (comboReady(g, 0, h.card) ? '<p class="note">💞 ลงตอนนี้จะทำคอมโบ!</p>' : '') + glossaryHTML(h.card);
+      if (h) html = cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus }) + ({ combo: '<p class="note">💞 ลงตอนนี้จะทำคอมโบ!</p>', cond: '<p class="note">✨ เงื่อนไขครบ — ลงตอนนี้ได้โบนัส!</p>' }[readyKind(g, 0, h.card)] || '') + glossaryHTML(h.card);
     } else if (trapEl) {
       const h = g.P(0).traps.find(x => x.uid === +trapEl.dataset.trap);
       if (h) html = cardHTML(h.card) + '<p class="note">กับดักนี้ซ่อนอยู่ ศัตรูมองไม่เห็น</p>' + glossaryHTML(h.card);
@@ -338,7 +382,7 @@ const BattleUI = {
   cancel() { if (this.sel) { this.sel = null; this.render(); } },
 
   // pos = ตำแหน่งที่จะวางมินเนี่ยน (มาจากการลาก)
-  clickHand(uid, pos) {
+  clickHand(uid, pos, fromDrop) {
     const g = this.g;
     if (this.busy || g.current !== 0 || g.over) return;
     const h = g.P(0).hand.find(x => x.uid === uid);
@@ -346,6 +390,8 @@ const BattleUI = {
     if (this.sel?.mode === 'play' && this.sel.uid === uid) return this.cancel();
     if (!g.canPlay(0, h)) return this.toast(g.whyNot(0, h));
     const c = h.card;
+    // คลิกมินเนี่ยน (ไม่ได้ลาก) = หยิบการ์ดติดเมาส์ แล้วคลิกบนบอร์ดเพื่อเลือกช่องที่จะลง
+    if (c.type === 'minion' && !fromDrop) return this.startCarry(uid);
     if (c.target) {
       const valid = g.validTargets(0, c.target, c.targetFilter);
       if (valid.length) {
@@ -376,10 +422,27 @@ const BattleUI = {
     this.cancel();
   },
 
-  doPlay(uid, target, pos) {
+  async doPlay(uid, target, pos) {
+    const g = this.g;
     this.sel = null;
-    this.g.play(0, uid, target, pos);
+    const h = g.P(0).hand.find(x => x.uid === uid);
+    // การ์ดตำนานที่มีแอนิเมชันเปิดตัว: เล่นก่อน แล้วค่อยลงสนาม
+    if (h && LEGEND_FX[h.card.id] && g.canPlay(0, h)) {
+      this.busy = true; this.render();
+      await playEntrance(h.card, 0, { pos, uid });
+      if (this.g !== g) return;
+      this.busy = false;
+    }
+    g.play(0, uid, target, pos);
     this.render();
+  },
+  // ลูกศรของบอส: ชี้จาก a ไป b สักครู่
+  async aim(a, b, ms = 650) {
+    const ea = a && document.querySelector(`#bArena [data-uid="${a.uid}"]`), eb = b && document.querySelector(`#bArena [data-uid="${b.uid}"]`);
+    if (!ea || !eb) return;
+    Aim.pin(ea, eb);
+    await wait(ms);
+    Aim.stop();
   },
 
   /* ---------- ลากการ์ดจากมือ ----------
@@ -418,7 +481,8 @@ const BattleUI = {
     this.sel = null;
     const r = el.getBoundingClientRect();
     const ghost = el.cloneNode(true);
-    ghost.classList.remove('playable', 'selected', 'combo-ready');
+    ghost.classList.remove('playable', 'selected', 'combo-ready', 'drawn', 'popped', 'noplay');
+    ghost.style.animationDelay = '';
     ghost.classList.add('drag-ghost');
     ghost.style.fontSize = getComputedStyle(el).fontSize;
     document.body.appendChild(ghost);
@@ -431,6 +495,30 @@ const BattleUI = {
     this.dragMove(d, ev);
     return d;
   },
+  // หยิบการ์ดติดเมาส์ (คลิกแทนการลาก): ขยับเมาส์เพื่อเลือกช่อง • คลิกบนบอร์ด = ลง • คลิกที่มือ/คลิกขวา/Esc = ยกเลิก
+  startCarry(uid) {
+    const el = document.querySelector(`#pHand [data-hand="${uid}"]`);
+    const d = el && this.beginDrag(el, uid, { clientX: Aim.mx, clientY: Aim.my });
+    if (!d) return;
+    d.ghost.classList.add('carry');
+    const move = ev => this.dragMove(d, ev);
+    const down = ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      this.noClickUntil = Date.now() + 350;
+      this.endCarry(ev.button === 2 ? null : ev);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerdown', down, true);
+    this.carry = { d, off: () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerdown', down, true); } };
+  },
+  endCarry(ev) {
+    const c = this.carry;
+    if (!c) return;
+    this.carry = null;
+    c.off();
+    this.dragEnd(c.d, ev);
+  },
+
   dragMove(d, ev) {
     d.ghost.style.left = `${ev.clientX - d.w / 2}px`;
     d.ghost.style.top = `${ev.clientY - d.hgt * 0.35}px`;
@@ -465,7 +553,7 @@ const BattleUI = {
     if (!ev || ev.type === 'pointercancel' || ev.clientY > d.handTop) return this.render();   // ลากกลับมือ = ยกเลิก
     const c = d.h.card;
     if (c.type !== 'minion' && c.target && d.over != null) return this.doPlay(d.uid, this.g.findEntity(d.over));
-    this.clickHand(d.uid, c.type === 'minion' ? d.pos : undefined);
+    this.clickHand(d.uid, c.type === 'minion' ? d.pos : undefined, true);
   },
 
   async doAttack(m, t) {
@@ -520,15 +608,69 @@ const BattleUI = {
   },
 
   fx(type, t, n) {
-    const el = t && document.querySelector(`[data-uid="${t.uid}"]`);
-    if (!el) return;
+    if (!t) return;
+    const el = document.querySelector(`#bArena [data-uid="${t.uid}"]`);
+    if (!el) {
+      // มินเนี่ยนที่เพิ่งลง (ยังไม่ถูกวาด) — เก็บไว้เล่นหลังวาดเสร็จ
+      if (type === 'buff' || type === 'heal') (this.pendingFx = this.pendingFx || []).push({ type, uid: t.uid, n, at: performance.now() });
+      return;
+    }
+    this.fxOn(el, type, n);
+  },
+  flushFx() {
+    if (!this.pendingFx || !this.pendingFx.length) return;
+    const now = performance.now(), left = [];
+    for (const p of this.pendingFx) {
+      if (now - p.at > 1500) continue;
+      const el = document.querySelector(`#bArena [data-uid="${p.uid}"]`);
+      if (el) this.fxOn(el, p.type, p.n); else left.push(p);
+    }
+    this.pendingFx = left;
+  },
+  // อนุภาคลอยขึ้น (ฮีล = กากบาทสีเขียว / บัฟ = ลูกศรสีทอง / ดีบัฟ = ลูกศรลงสีแดง)
+  particles(el, kind) {
+    const r = el.getBoundingClientRect(), k = SPEEDS[SPEED].k;
+    const sym = { heal: '✚', buff: '▲', debuff: '▼' }[kind];
+    for (let i = 0; i < 9; i++) {
+      const p = document.createElement('div');
+      p.className = `ptc ptc-${kind}`;
+      p.textContent = sym;
+      p.style.left = `${r.left + r.width * (.12 + Math.random() * .76)}px`;
+      p.style.top = `${r.top + r.height * (.45 + Math.random() * .45)}px`;
+      p.style.fontSize = `${10 + Math.random() * 10}px`;
+      p.style.animationDelay = `${Math.random() * 280 * k}ms`;
+      p.style.animationDuration = `${900 * k}ms`;
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 1300 * k);
+    }
+    const glow = document.createElement('div');
+    glow.className = `glow-ring glow-${kind}`;
+    Object.assign(glow.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, animationDuration: `${800 * k}ms` });
+    document.body.appendChild(glow);
+    setTimeout(() => glow.remove(), 850 * k);
+  },
+  fxOn(el, type, n) {
     const r = el.getBoundingClientRect();
+    if (type === 'buff') {
+      const a = (n && n.a) || 0, h = (n && n.h) || 0;
+      if (!a && !h) return;
+      const neg = a < 0 || h < 0, sg = v => (v > 0 ? `+${v}` : `${v}`);
+      this.particles(el, neg ? 'debuff' : 'buff');
+      const txt = a && h ? `${sg(a)}/${sg(h)}` : a ? `${sg(a)} ⚔️` : `${sg(h)} ❤️`;
+      return this.floatText(r, txt, neg ? 'f-debuff' : 'f-buff');
+    }
+    if (type === 'heal') this.particles(el, 'heal');
     const map = {
       dmg: [`-${n}`, 'f-dmg'], heal: [`+${n}`, 'f-heal'], shield: ['ป้องกัน!', 'f-shield'],
       freeze: ['❄️', 'f-freeze'], armor: [`+${n} 🛡️`, 'f-armor'], death: ['💀', 'f-death'], deck: [`🔀 +${n} เด็ค`, 'f-deck'],
     };
     if (!map[type]) return;
     const [txt, cls] = map[type];
+    if (type === 'death') this.dyingGhost(el, r);
+    this.floatText(r, txt, cls);
+    if (type === 'dmg') { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+  },
+  floatText(r, txt, cls) {
     const f = document.createElement('div');
     f.className = `float ${cls}`;
     f.textContent = txt;
@@ -536,10 +678,208 @@ const BattleUI = {
     f.style.top = `${r.top + r.height / 2}px`;
     document.body.appendChild(f);
     setTimeout(() => f.remove(), 1100);
-    if (type === 'dmg') { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
   },
 
-  onPlay() { /* การ์ดของบอสแสดงล่วงหน้าแล้วใน showEnemyPlay */ },
+  // สำเนาของมินเนี่ยนที่ตาย ค้างไว้เล่นเอฟเฟค สั่น → ดำ → หายไป
+  dyingGhost(el, r) {
+    const gh = el.cloneNode(true);
+    ['data-uid', 'data-cid'].forEach(a => gh.removeAttribute(a));
+    gh.classList.remove('can-attack', 'selected', 'targetable', 'enter', 'shake', 'ai-target');
+    gh.classList.add('dying');
+    Object.assign(gh.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`,
+      margin: '0', transform: 'none', animationDelay: '0ms', fontSize: getComputedStyle(el).fontSize, zIndex: 60, pointerEvents: 'none' });
+    gh.style.setProperty('--die', `${950 * SPEEDS[SPEED].k}ms`);
+    document.body.appendChild(gh);
+    setTimeout(() => gh.remove(), 1000 * SPEEDS[SPEED].k);
+  },
+
+  // แจกมือเริ่มต้น: ทั้งสองฝ่ายจั่วการ์ดจากกองเด็คขึ้นมือทีละใบพร้อมกัน
+  async dealOpening() {
+    const g = this.g, k = SPEEDS[SPEED].k, now = performance.now(), GAP = 210 * k;
+    this.handAt = {};
+    g.P(0).hand.forEach((h, i) => { this.handAt[h.uid] = { t: now + i * GAP, from: h.id === 'hell_coin' ? 'pop' : 'deck' }; });
+    this.eHandAt = g.P(1).hand.map((_, i) => ({ t: now + i * GAP, from: 'deck' }));
+    this.lastDrawAt = now + Math.max(g.P(0).hand.length, g.P(1).hand.length) * GAP;
+    $('#bArena')?.classList.remove('pregame');
+    this.render();
+    await wait(Math.max(g.P(0).hand.length, g.P(1).hand.length) * 210 + 450);
+  },
+
+  /* ---------- การ์ดเข้ามือ: บินจากกองเด็ค (จั่ว) หรือเด้งขึ้นที่ช่อง (ได้มาจากเอฟเฟค) ----------
+     จำเวลาเริ่มของแต่ละใบไว้ ให้แอนิเมชันเล่นต่อเนื่องแม้หน้าจอถูกวาดใหม่ระหว่างทาง
+     จั่วหลายใบพร้อมกันจะทยอยมาทีละใบ */
+  animateDraws(P, E) {
+    const k = SPEEDS[SPEED].k, now = performance.now(), DUR = 620 * k, GAP = 190 * k;
+    const first = !this.handAt;
+    if (first) { this.handAt = {}; this.eHandAt = []; }
+    const slot = (t) => { const s = Math.max(now, this.lastDrawAt + GAP); this.lastDrawAt = s; return s; };
+    const play = (el, info, pile) => {
+      const el0 = now - info.t;
+      if (el0 >= DUR) return;
+      if (info.from === 'deck' && pile) {
+        const pr = pile.getBoundingClientRect(), r = el.getBoundingClientRect();
+        el.style.setProperty('--fx', `${pr.left + pr.width / 2 - (r.left + r.width / 2)}px`);
+        el.style.setProperty('--fy', `${pr.top + pr.height / 2 - (r.top + r.height / 2)}px`);
+        el.classList.add('drawn');
+      } else el.classList.add('popped');
+      el.style.setProperty('--dur', `${DUR}ms`);
+      el.style.animationDelay = `${-el0}ms`;
+    };
+    // มือเรา
+    const myPile = $('#pDeck .pile');
+    document.querySelectorAll('#pHand .card').forEach(el => {
+      const uid = +el.dataset.hand;
+      if (!this.handAt[uid]) {
+        const h = P.hand.find(x => x.uid === uid);
+        this.handAt[uid] = first ? { t: -1e9 } : { t: slot(), from: h && h.from };
+      }
+      play(el, this.handAt[uid], myPile);
+    });
+    // มือบอส (การ์ดคว่ำ): ใบที่เพิ่มขึ้นมาใหม่บินจากกองเด็คบอส
+    const backs = [...document.querySelectorAll('#eHand .card-back')];
+    while (this.eHandAt.length < backs.length) this.eHandAt.push(first ? { t: -1e9 } : { t: slot(), from: 'deck' });
+    this.eHandAt.length = backs.length;
+    const ePile = $('#eDeck .pile');
+    backs.forEach((el, i) => play(el, this.eHandAt[i], ePile));
+  },
+
+  /* ---------- สับการ์ดเข้าเด็ค: การ์ดโผล่ขึ้นมา แล้วบินเข้ากองเด็คของเจ้าของ ---------- */
+  onShuffle(o, id, n, src) {
+    const holder = $(o === 0 ? '#pDeck' : '#eDeck'), arena = $('#bArena');
+    if (!holder || !arena || !CARDS[id]) return;
+    const pileEl = holder.querySelector('.pile') || holder;
+    let from = null;
+    if (typeof src === 'number') from = document.querySelector(`#bArena [data-uid="${src}"]`)?.getBoundingClientRect();
+    else if (src === 'hand0' || src === 'hand1') from = $(src === 'hand0' ? '#pHand' : '#eHand').getBoundingClientRect();
+    if (!from) { const a = arena.getBoundingClientRect(); from = { left: a.left + a.width / 2 - 1, top: a.top + a.height * (o === 0 ? .55 : .35) - 1, width: 2, height: 2 }; }
+    const k = SPEEDS[SPEED].k, count = Math.min(n, 4);
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => this.flyCard(CARDS[id], from, pileEl, holder, i, count), i * 170 * k);
+    }
+  },
+  flyCard(card, from, pileEl, holder, i, count) {
+    if (!document.body.contains(holder)) return;
+    const k = SPEEDS[SPEED].k;
+    const el = document.createElement('div');
+    el.className = 'fly-card';
+    el.innerHTML = cardHTML(card);
+    document.body.appendChild(el);
+    const to = (holder.querySelector('.pile') || pileEl).getBoundingClientRect();
+    const fx = from.left + from.width / 2 + (i - (count - 1) / 2) * 34, fy = from.top + from.height / 2;
+    const tx = to.left + to.width / 2, ty = to.top + to.height / 2;
+    const at = (x, y, s, r = 0) => `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${s}) rotate(${r}deg)`;
+    const anim = el.animate([
+      { transform: at(fx, fy, .5), opacity: 0 },
+      { transform: at(fx, fy - 40, 1), opacity: 1, offset: .22 },
+      { transform: at(fx, fy - 40, 1), opacity: 1, offset: .5 },
+      { transform: at(tx, ty, .22, 12), opacity: .35 },
+    ], { duration: 1150 * k, easing: 'cubic-bezier(.45,0,.35,1)', fill: 'forwards' });
+    anim.onfinish = () => {
+      el.remove();
+      holder.classList.remove('bump'); void holder.offsetWidth; holder.classList.add('bump');
+    };
+  },
+
+  /* ---------- กองเด็ค ---------- */
+  deckPileHTML(p) {
+    const n = p.deck.length, layers = Math.min(6, Math.ceil(n / 4));
+    const backs = Array.from({ length: layers }, (_, i) => `<i style="--i:${i}"></i>`).join('');
+    return `<div class="pile ${n ? '' : 'empty'}" data-deck="${p.o}" title="">
+        ${backs}<span class="pile-n">${n}</span>
+      </div>
+      <small>${n ? 'เด็ค' : `เด็คหมด! ${p.fatigue ? `Fatigue ${p.fatigue}` : ''}`}</small>`;
+  },
+  showDeckTip(pile, p) {
+    let tip = $('#deckTip');
+    if (!tip) { tip = document.createElement('div'); tip.id = 'deckTip'; document.body.appendChild(tip); }
+    if (tip.dataset.o !== String(p.o) || tip.dataset.n !== String(p.deck.length) || !tip.classList.contains('show')) {
+      const cnt = {};
+      p.deck.forEach(h => { cnt[h.id] = (cnt[h.id] || 0) + 1; });
+      const ids = Object.keys(cnt).sort((a, b) => CARDS[a].cost - CARDS[b].cost || CARDS[a].name.localeCompare(CARDS[b].name));
+      tip.innerHTML = `<h4>🂠 เด็คของ ${p.name} — เหลือ ${p.deck.length} ใบ</h4>
+        <p class="muted">เรียงตามค่าร่าย (ไม่ใช่ลำดับที่จะจั่ว)</p>
+        ${ids.length ? `<div class="deck-tip-grid">${ids.map(id => cardHTML(CARDS[id], { extra: cnt[id] > 1 ? `<div class="count">×${cnt[id]}</div>` : '' })).join('')}</div>`
+          : '<p>เด็คหมดแล้ว — จั่วครั้งต่อไปจะโดน Fatigue</p>'}`;
+      tip.dataset.o = p.o; tip.dataset.n = p.deck.length;
+    }
+    tip.classList.add('show');
+    const r = pile.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = `${Math.max(8, r.left - w - 14)}px`;
+    tip.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, r.top + r.height / 2 - h / 2))}px`;
+  },
+  hideDeckTip() { const t = $('#deckTip'); if (t) t.classList.remove('show'); },
+
+  /* ---------- มินเนี่ยนถูกควบคุม: ลอยข้ามจากบอร์ดฝั่งเดิมไปบอร์ดฝั่งใหม่ ---------- */
+  onSteal(m) {
+    const el = document.querySelector(`#bArena [data-uid="${m.uid}"]`);
+    if (!el) return;
+    (this.moving = this.moving || {})[m.uid] = { from: el.getBoundingClientRect(), t: performance.now() };
+    // หัวใจลอยขึ้นจากตำแหน่งเดิม
+    const r = el.getBoundingClientRect();
+    for (let i = 0; i < 6; i++) {
+      const p = document.createElement('div');
+      p.className = 'ptc ptc-charm';
+      p.textContent = '💘';
+      p.style.left = `${r.left + r.width * (.15 + Math.random() * .7)}px`;
+      p.style.top = `${r.top + r.height * (.3 + Math.random() * .5)}px`;
+      p.style.animationDelay = `${Math.random() * 250}ms`;
+      p.style.animationDuration = `${900 * SPEEDS[SPEED].k}ms`;
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 1300 * SPEEDS[SPEED].k);
+    }
+  },
+  animateSteals() {
+    if (!this.moving) return;
+    const k = SPEEDS[SPEED].k, DUR = 1000 * k, now = performance.now();
+    for (const [uid, mv] of Object.entries(this.moving)) {
+      const el0 = now - mv.t;
+      if (el0 >= DUR) { delete this.moving[uid]; continue; }
+      const el = document.querySelector(`#bArena [data-uid="${uid}"]`);
+      if (!el) continue;
+      el.classList.remove('enter');
+      const r = el.getBoundingClientRect();
+      const dx = mv.from.left - r.left, dy = mv.from.top - r.top;
+      const a = el.animate([
+        { transform: `translate(${dx}px, ${dy}px)`, filter: 'drop-shadow(0 0 0 #ff4fa3)' },
+        { transform: `translate(${dx * .55}px, ${dy * .55}px) scale(1.18) rotate(-8deg)`, filter: 'drop-shadow(0 0 18px #ff4fa3) brightness(1.3)', offset: .35 },
+        { transform: `translate(${dx * .1}px, ${dy * .1}px) scale(1.12) rotate(6deg)`, filter: 'drop-shadow(0 0 14px #ff4fa3)', offset: .75 },
+        { transform: 'none', filter: 'none' },
+      ], { duration: DUR, easing: 'cubic-bezier(.45,0,.3,1)', fill: 'both' });
+      a.currentTime = el0;
+      el.style.zIndex = 40;
+    }
+  },
+
+  // วางกับดัก: การ์ดพลิกคว่ำแล้วบินไปเข้าช่องกับดักหน้าฮีโร่
+  onPlay(o, h) {
+    if (h.card.type !== 'trap') return;
+    const k = SPEEDS[SPEED].k, row = $(o === 0 ? '#pHeroRow .traps' : '#eHeroRow .traps');
+    const src = o === 0 ? document.querySelector(`#pHand [data-hand="${h.uid}"]`) : ([...document.querySelectorAll('#eHand .card-back')].pop() || $('#eHand'));
+    if (!row || !src) return;
+    const fr = src.getBoundingClientRect(), tr = row.getBoundingClientRect();
+    const to = { left: tr.right - 30, top: tr.top + tr.height / 2 - 14, width: 28, height: 28 };
+    const dur = 900 * k;
+    flyBetween(o === 0 ? cardHTML(h.card) : null, fr, to, { dur, faceDownEnd: true, endScale: .16 });
+    this.trapAt[o].push(performance.now() + dur * .85);
+    setTimeout(() => this.render(), dur * .86);
+  },
+
+  // เรียกจากเด็ค: การ์ดพุ่งออกจากกองเด็คไปยังช่องบนบอร์ด แล้วมินเนี่ยนค่อยหย่อนลง
+  onRecruit(o, m) {
+    const g = this.g, pile = $(o === 0 ? '#pDeck .pile' : '#eDeck .pile');
+    if (!pile) return;
+    const k = SPEEDS[SPEED].k, now = performance.now();
+    const before = g.mins(o).slice(0, g.mins(o).indexOf(m)).filter(x => document.querySelector(`#bArena [data-uid="${x.uid}"]`)).length;
+    const land = landingPoint(o, before);
+    if (!land) return;
+    const start = Math.max(now, this.lastRecruitAt + 260 * k);
+    this.lastRecruitAt = start;
+    const dur = 720 * k;
+    flyBetween(cardHTML(m.card), pile.getBoundingClientRect(),
+      { left: land.x - land.w / 2, top: land.y - land.h / 2, width: land.w, height: land.h },
+      { dur, delay: start - now, faceDownStart: true, endScale: .55, lift: 50 });
+    this.enterAt[m.uid] = start + dur * .82;
+  },
 
   // แสดงการ์ดที่บอสกำลังจะเล่น (ก่อนเอฟเฟคทำงาน) พร้อมชี้เป้าหมาย
   async showEnemyPlay(h, target) {
@@ -553,12 +893,13 @@ const BattleUI = {
     ov.innerHTML = `<div class="played enemy-play"><div class="played-cap">🔴 ${g.boss.name} ใช้${c.type === 'trap' ? 'กับดัก' : ''}${tName}</div>${html}</div>`;
     clearTimeout(this.ovT);
     const tEl = target && document.querySelector(`#bArena [data-uid="${target.uid}"]`);
-    if (tEl) tEl.classList.add('ai-target');
+    if (tEl) { tEl.classList.add('ai-target'); Aim.pin($('#eHeroRow .hero'), tEl); }
     await wait(c.type === 'trap' ? 1100 : 1700);
   },
   clearEnemyPlay() {
     const ov = $('#ePlay');
     if (ov && ov.querySelector('.enemy-play')) ov.innerHTML = '';
+    Aim.stop();
   },
 
   // การ์ดล้นมือ: แสดงการ์ดใบนั้นไหม้หายไปใกล้มือของเจ้าของ

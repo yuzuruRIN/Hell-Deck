@@ -381,7 +381,7 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .combo-badge { position: absolute; top: -.9em; left: 50%; transform: translateX(-50%); z-index: 4; white-space: nowrap;
   background: linear-gradient(#ff7ab8, #c3125e); color: #fff; font-weight: 800; font-size: .62em; padding: .1em .6em; border-radius: 1em;
   border: .12em solid #ffd0e6; box-shadow: 0 0 .8em #ff4fa3; }
-.hand.player .card.combo-ready { box-shadow: 0 0 0 .2em #ff4fa3, 0 0 1.4em #ff4fa3; }
+
 
 .b-log-head { font-size: .78em; color: #ffb3c1; font-weight: 600; }
 .b-log-head small { color: var(--muted); font-weight: 400; }
@@ -505,3 +505,320 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
   100% { filter: sepia(1) brightness(.15) blur(2px); transform: scale(.85) rotate(-4deg); } }
 @keyframes flame { 0%, 25% { opacity: 0; transform: translateX(-50%) scaleY(.2); } 45% { opacity: 1; transform: translateX(-50%) scaleY(1); }
   100% { opacity: 0; transform: translateX(-50%) scaleY(1.3); } }
+
+/* ============================ ไอคอน HP (หยดเลือด) / เกราะ (โล่) ============================ */
+.hero .h-hp, .m-hp, .card .hp { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 48'%3E%3Cdefs%3E%3CradialGradient id='g' cx='38%25' cy='55%25' r='65%25'%3E%3Cstop offset='0' stop-color='%23ff8a8a'/%3E%3Cstop offset='.55' stop-color='%23d01c2c'/%3E%3Cstop offset='1' stop-color='%236e0612'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M20 2C20 2 4 21 4 31a16 16 0 0 0 32 0C36 21 20 2 20 2Z' fill='url(%23g)' stroke='%232a0006' stroke-width='2'/%3E%3Cpath d='M11 28c0-4 3-9 6-13' stroke='%23fff' stroke-opacity='.45' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat !important; border-radius: 0 !important; padding-top: .45em; }
+.hero .h-hp { width: 2.4em; height: 2.9em; bottom: -.6em; }
+.m-hp { width: 2.1em; height: 2.5em; bottom: -.55em; }
+.card .hp { width: 2.05em; height: 2.45em; bottom: -.7em; }
+.hero .h-armor { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'%3E%3Cdefs%3E%3ClinearGradient id='s' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f1f5fa'/%3E%3Cstop offset='.5' stop-color='%239aa7b4'/%3E%3Cstop offset='1' stop-color='%234b5662'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M20 2L37 8V21C37 33 29 41 20 44C11 41 3 33 3 21V8Z' fill='url(%23s)' stroke='%231d242b' stroke-width='2'/%3E%3Cpath d='M20 6L33 10.5V21C33 30.5 27 37 20 40Z' fill='%23ffffff' fill-opacity='.18'/%3E%3C/svg%3E") center / contain no-repeat !important; border-radius: 0 !important;
+  width: 2.4em; height: 2.75em; bottom: -.55em; right: 1.85em; color: #10161c; text-shadow: 0 1px 0 #ffffff88; padding-bottom: .2em; }
+
+/* ============================ อินโทร VS ============================ */
+.intro-running .hero-row .hero { visibility: hidden; }
+.intro { position: absolute; inset: 0; z-index: 60; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; cursor: pointer;
+  background: radial-gradient(ellipse at 50% 50%, #3b0c18ee, #0c0306f7 70%); animation: introIn calc(var(--k) * .5s) ease-out; }
+.intro::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 49.6%, #ff2d5588 49.8%, #ffcc33aa 50%, #ff2d5588 50.2%, transparent 50.4%);
+  animation: slash calc(var(--k) * .7s) ease-out both; pointer-events: none; }
+.intro-side { display: flex; flex-direction: column; align-items: center; gap: .3em; text-align: center; }
+.intro-side.left { animation: fromLeft calc(var(--k) * .7s) cubic-bezier(.2,.9,.3,1.2) both; }
+.intro-side.right { animation: fromRight calc(var(--k) * .7s) cubic-bezier(.2,.9,.3,1.2) both; }
+.intro-portrait { width: 13em; height: 13em; border-radius: 50%; overflow: hidden; border: .3em solid #ffcc33; box-shadow: 0 0 2.5em #ffcc3388; background: #1d0a0d; }
+.intro-portrait.boss { border-color: var(--accent); box-shadow: 0 0 2.5em #ff2d55aa; }
+.intro-portrait .art { width: 100%; height: 100%; }
+.intro-portrait .art .emoji { font-size: 6em; }
+.intro-side b { font-size: 2.2em; font-weight: 800; text-shadow: 0 0 14px #ff2d55, 0 3px 0 #000; margin-top: .3em; }
+.intro-side small { color: #ffc2cf; font-size: 1em; }
+.intro-vs { font-size: 6em; font-weight: 800; font-style: italic; color: #ffcc33; padding: 0 .4em;
+  text-shadow: 0 0 .3em #ff2d55, 0 .06em 0 #7a0016, 0 .12em 0 #000; animation: vsPop calc(var(--k) * .6s) calc(var(--k) * .45s) cubic-bezier(.3,1.8,.5,1) both; }
+.intro-skip { position: absolute; bottom: 1.2em; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .8em; }
+.intro.leaving { background: transparent; transition: background calc(var(--k) * .6s); }
+.intro.leaving::before, .intro.leaving .intro-vs, .intro.leaving b, .intro.leaving small, .intro.leaving .intro-skip { opacity: 0; transition: opacity calc(var(--k) * .3s); }
+.intro.leaving .intro-portrait { z-index: 2; position: relative; }
+@keyframes introIn { from { opacity: 0; } }
+@keyframes slash { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes fromLeft { from { opacity: 0; transform: translateX(-40vw); } }
+@keyframes fromRight { from { opacity: 0; transform: translateX(40vw); } }
+@keyframes vsPop { from { opacity: 0; transform: scale(3) rotate(-12deg); } }
+
+/* โยนเหรียญ */
+.coinflip { position: absolute; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1em;
+  background: #0c0306aa; cursor: pointer; perspective: 800px; }
+.coin { position: relative; width: 9em; height: 9em; transform-style: preserve-3d; animation: coinSpin calc(var(--k) * 1.5s) cubic-bezier(.2,.6,.3,1) forwards; }
+.coin.tails { animation-name: coinSpinB; }
+.coin .face { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; backface-visibility: hidden; border: .35em solid #ffcc33;
+  box-shadow: 0 0 2em #ffcc3388, inset 0 0 1em #000a; background: radial-gradient(#ffe48a, #b07a10); }
+.coin .face .art { width: 100%; height: 100%; }
+.coin .face .art .emoji { font-size: 4.5em; }
+.coin .back { transform: rotateY(180deg); border-color: var(--accent); }
+.coin-txt { font-size: 1.8em; font-weight: 800; color: #ffd6de; text-shadow: 0 0 12px #ff2d55, 0 2px 0 #000; text-align: center; }
+.coin-txt small { display: block; font-size: .5em; color: #ffe08a; font-weight: 600; margin-top: .3em; }
+.coinflip.done .coin-txt { animation: vsPop .4s cubic-bezier(.3,1.8,.5,1); }
+@keyframes coinSpin { from { transform: translateY(0) rotateY(0); } 40% { transform: translateY(-3em) rotateY(900deg); } to { transform: translateY(0) rotateY(1800deg); } }
+@keyframes coinSpinB { from { transform: translateY(0) rotateY(0); } 40% { transform: translateY(-3em) rotateY(900deg); } to { transform: translateY(0) rotateY(1980deg); } }
+
+/* ============================ ลูกศรเล็งเป้า ============================ */
+#aimArrow { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 400; pointer-events: none; display: none; overflow: visible; }
+#aimArrow.show { display: block; }
+#aimArrow .aim-line { fill: none; stroke: #ffcc33; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 16 10; animation: aimDash .5s linear infinite; filter: drop-shadow(0 0 3px #000); }
+#aimArrow .aim-glow { fill: none; stroke: #ffcc3355; stroke-width: 16; stroke-linecap: round; }
+#aimArrow .aim-head { fill: #ffcc33; stroke: #5a3a00; stroke-width: .6; }
+#aimArrow .aim-ring { fill: none; stroke: #ff3b3b; stroke-width: 4; stroke-dasharray: 10 6; animation: aimSpin 1.2s linear infinite; transform-box: fill-box; transform-origin: center; }
+#aimArrow.locked .aim-line { stroke: #ff5a3b; }
+#aimArrow.locked .aim-head { fill: #ff5a3b; }
+#aimArrow.enemy .aim-line { stroke: #ff2d55; }
+#aimArrow.enemy .aim-glow { stroke: #ff2d5555; }
+#aimArrow.enemy .aim-head { fill: #ff2d55; }
+@keyframes aimDash { to { stroke-dashoffset: -26; } }
+@keyframes aimSpin { to { transform: rotate(360deg); } }
+
+/* ============================ เปิดตัวการ์ดตำนาน ============================ */
+.legend-stage { position: absolute; inset: 0; z-index: 70; overflow: hidden; cursor: pointer;
+  background: radial-gradient(ellipse at 50% 45%, #5a0f1fcc, #0c0306f2 70%); animation: introIn calc(var(--k) * .3s) ease-out; }
+.legend-stage.out { opacity: 0; transition: opacity calc(var(--k) * .3s); }
+.lg-skip { position: absolute; bottom: 1em; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .8em; }
+/* Blitzø: โหนสลิง */
+.lg-swing { position: absolute; left: 50%; top: 0; width: 0; height: 100%; transform-origin: 0 0; transform: translateY(-110%); }
+.lg-swing.drop { transform: translateY(0); transition: transform calc(var(--k) * .7s) cubic-bezier(.3,1.35,.5,1); }
+.lg-swing.sway { animation: sway calc(var(--k) * 1.6s) ease-in-out; }
+.lg-rope { position: absolute; left: -2px; top: 0; width: 4px; height: 26vh; background: repeating-linear-gradient(#c9a26a 0 6px, #8a6a3a 6px 10px); box-shadow: 0 0 4px #000; }
+.lg-hook { position: absolute; left: -10px; top: calc(26vh - 6px); width: 20px; height: 20px; border: 4px solid #aaa; border-top-color: transparent; border-radius: 50%; }
+.lg-portrait { position: absolute; left: -7.5em; top: calc(26vh + 8px); width: 15em; height: 15em; border-radius: 50%; overflow: hidden;
+  border: .35em solid #ffc02e; box-shadow: 0 0 3em #ff2d55, 0 0 0 .5em #ff2d5544; background: #1d0a0d; }
+.lg-portrait .art { width: 100%; height: 100%; }
+.lg-portrait .art.card-art img { object-position: 50% 8% !important; }
+.lg-gun { position: absolute; left: 6em; top: calc(26vh + 6em); width: 8em; transform-origin: 30% 55%; }
+.lg-gun .revolver { width: 100%; filter: drop-shadow(0 0 6px #ff2d55); }
+.lg-gun.twirl { animation: twirl calc(var(--k) * 1s) cubic-bezier(.4,0,.3,1); }
+.lg-gun.aim { transform: rotate(-8deg); }
+.lg-gun.kick { animation: kick .18s ease-out; }
+.lg-flash { position: absolute; left: 92%; top: 4%; width: 4em; height: 4em; border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 15%, #ffe066 30%, #ff7a1a 55%, transparent 70%); transform: scale(.2); }
+.lg-flash.pop { animation: flashPop .22s ease-out; }
+.lg-bang { position: absolute; transform: translate(-50%, -50%) rotate(-10deg); font-size: 3.4em; font-weight: 800; color: #ffe066;
+  text-shadow: 0 0 .3em #ff5a00, .05em .05em 0 #7a0016, .1em .1em 0 #000; animation: bangPop calc(var(--k) * .9s) ease-out forwards; pointer-events: none; }
+.lg-hole { position: absolute; width: 2.2em; height: 2.2em; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #000 0 22%, #2a0a0a 30%, transparent 34%), repeating-conic-gradient(#ffffff55 0 6deg, transparent 6deg 30deg);
+  mask: radial-gradient(circle, #000 60%, transparent 70%); animation: introIn .1s; }
+.lg-title { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); text-align: center; opacity: 0; }
+.lg-title.show { opacity: 1; animation: vsPop calc(var(--k) * .5s) cubic-bezier(.3,1.8,.5,1); }
+.lg-title b { display: block; font-size: 3.6em; font-weight: 800; color: #ffcc33; text-shadow: 0 0 .3em #ff2d55, 0 .06em 0 #7a0016, 0 .1em 0 #000; letter-spacing: 2px; }
+.lg-title small { color: #ffd6de; font-size: 1.2em; text-shadow: 0 2px 4px #000; }
+@keyframes sway { 0% { transform: rotate(0); } 25% { transform: rotate(14deg); } 55% { transform: rotate(-10deg); } 80% { transform: rotate(4deg); } 100% { transform: rotate(0); } }
+@keyframes twirl { from { transform: rotate(0); } to { transform: rotate(-1080deg); } }
+@keyframes kick { 0% { transform: rotate(-8deg); } 35% { transform: rotate(-24deg) translateX(-.4em); } 100% { transform: rotate(-8deg); } }
+@keyframes flashPop { 0% { opacity: 1; transform: scale(.3); } 60% { opacity: 1; transform: scale(1.3); } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes bangPop { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-10deg) scale(.3); } 20% { opacity: 1; transform: translate(-50%, -50%) rotate(-10deg) scale(1.15); }
+  70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -80%) rotate(-10deg) scale(1); } }
+.screen-shake { animation: screenShake .25s; }
+@keyframes screenShake { 20% { translate: -8px 4px; } 40% { translate: 7px -5px; } 60% { translate: -5px -3px; } 80% { translate: 4px 3px; } }
+@media (prefers-reduced-motion: reduce) { .screen-shake { animation: none; } }
+
+/* ---- Blitzø v2: ลงตรงช่องที่วาง (ตำแหน่งจาก --lx/--ly/--sz) + ปืนจริง ---- */
+.legend-stage.lg-blitzo { background: radial-gradient(ellipse at 50% 40%, #5a0f1f55, #0c0306b0 78%); }
+.landing-probe { visibility: hidden; }
+.lg-blitzo .lg-swing { left: var(--lx); }
+.lg-blitzo .lg-rope { height: calc(var(--ly) - var(--sz) / 2); }
+.lg-blitzo .lg-hook { top: calc(var(--ly) - var(--sz) / 2 - 14px); }
+.lg-blitzo .lg-portrait { left: calc(var(--sz) / -2); top: calc(var(--ly) - var(--sz) / 2); width: var(--sz); height: var(--sz); border-width: calc(var(--sz) * .035); }
+.lg-blitzo .lg-gun { left: calc(var(--sz) * .28); top: calc(var(--ly) - var(--sz) * .02); width: calc(var(--sz) * 1.3); transform-origin: 18% 70%; transition: transform .12s ease-out; z-index: 2; }
+.lg-blitzo .lg-gun img { width: 100%; display: block; filter: drop-shadow(0 0 6px #ff2d55aa) drop-shadow(0 4px 4px #000a); transform-origin: 18% 70%; }
+.lg-gun img.kick { animation: gunKick .16s ease-out; }
+@keyframes gunKick { 35% { transform: translateX(-8%) rotate(-12deg); } }
+.lg-blitzo .lg-flash { left: 99%; top: 24%; width: 3.2em; height: 3.2em; margin: -1.6em 0 0 -1.6em; }
+.lg-land { position: absolute; left: var(--lx); top: calc(var(--ly) + var(--sz) * .42); width: calc(var(--sz) * 1.5); height: calc(var(--sz) * .3);
+  transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(#ffcc33aa, transparent 70%); opacity: 0; pointer-events: none; }
+.lg-land.show { animation: landPuff calc(var(--k) * .6s) ease-out; }
+@keyframes landPuff { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.3); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); } }
+.lg-tracer { position: absolute; height: 3px; margin-top: -1.5px; transform-origin: 0 50%; pointer-events: none;
+  background: linear-gradient(90deg, #fff, #ffe066 30%, #ff7a1a99 80%, transparent); box-shadow: 0 0 6px #ffcc33; animation: tracer .3s ease-out forwards; }
+@keyframes tracer { 0% { opacity: 1; clip-path: inset(0 100% 0 0); } 40% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 0; clip-path: inset(0 0 0 70%); } }
+.lg-impact { position: absolute; width: 5em; height: 5em; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 10%, #ffe066 22%, #ff5a1a 40%, transparent 65%), repeating-conic-gradient(#ffcc33aa 0 8deg, transparent 8deg 36deg);
+  mask: radial-gradient(circle, #000 45%, transparent 68%); animation: impact .45s ease-out forwards; }
+@keyframes impact { from { transform: translate(-50%, -50%) scale(.2); opacity: 1; } to { transform: translate(-50%, -50%) scale(1.3); opacity: 0; } }
+.lg-blitzo .lg-bang { font-size: 2em; }
+.lg-blitzo .lg-title { bottom: auto; top: 6%; }
+
+/* ============================ การ์ดลงไม่ได้ (เหตุผลอื่นที่ไม่ใช่มานา) ============================ */
+.hand.player .card.noplay { filter: grayscale(.75) brightness(.7); }
+.hand.player .card.noplay:hover { filter: grayscale(.4) brightness(.9); }
+.noplay-tag { position: absolute; left: 50%; bottom: 1.6em; transform: translateX(-50%); z-index: 4; white-space: nowrap;
+  background: #000d; color: #ffb3b3; border: .08em solid #ff6b6b88; font-size: .6em; font-weight: 600; padding: .15em .6em; border-radius: 1em; }
+
+/* หยิบการ์ดติดเมาส์ */
+.drag-ghost.carry { transform: rotate(-4deg) scale(.9); box-shadow: 0 0 0 .2em #3dff6a, 0 1em 2.4em #000c !important; }
+
+/* ============================ มินเนี่ยนหย่อนลงบอร์ด ============================ */
+.unit.enter { animation: unitDrop var(--drop, 520ms) cubic-bezier(.3, 1.3, .5, 1) both; }
+@keyframes unitDrop {
+  0% { transform: translateY(-3.2em) scale(1.3); opacity: 0; box-shadow: 0 3em 2em #0000; }
+  45% { opacity: 1; }
+  62% { transform: translateY(.25em) scale(.95, .92); box-shadow: 0 0 0 .3em #ffcc3388, 0 0 1.6em #ffcc33aa; }
+  80% { transform: translateY(-.15em) scale(1.02); }
+  100% { transform: none; }
+}
+
+/* ============================ มินเนี่ยนตาย: สั่น → ดำ → หายไป ============================ */
+.unit.dying { animation: unitDie var(--die, 950ms) ease-in forwards; }
+@keyframes unitDie {
+  0% { translate: 0 0; filter: none; }
+  8% { translate: -5px 0; } 16% { translate: 5px 0; } 24% { translate: -4px 0; } 32% { translate: 4px 0; } 40% { translate: -2px 0; }
+  45% { translate: 0 0; filter: grayscale(1) brightness(.35); }
+  70% { opacity: 1; filter: grayscale(1) brightness(.12); transform: scale(.96); }
+  100% { opacity: 0; filter: grayscale(1) brightness(0) blur(3px); transform: scale(.82) translateY(.4em); }
+}
+
+/* ============================ กองเด็ค ============================ */
+.deck-pile { position: absolute; right: 2.2vw; z-index: 6; display: flex; flex-direction: column; align-items: center; gap: .3em; }
+.deck-pile.enemy { top: 13%; }
+.deck-pile.player { bottom: 29%; }
+.deck-pile small { font-size: .7em; color: var(--muted); white-space: nowrap; }
+.pile { position: relative; width: 3.4em; height: 4.8em; cursor: help; }
+.pile i { position: absolute; inset: 0; border-radius: .35em; border: .12em solid #c9475f;
+  background: repeating-linear-gradient(45deg, #5c1222 0 5px, #3a0a15 5px 10px);
+  transform: translate(calc(var(--i) * -2.5px), calc(var(--i) * -2.5px)); box-shadow: 1px 1px 2px #000c; }
+.pile-n { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-width: 1.8em; text-align: center;
+  font-weight: 800; background: #000c; border: .1em solid #ffcc33; color: #ffe08a; border-radius: 1em; padding: 0 .35em; }
+.pile.empty { border: .12em dashed #ff6b6b88; border-radius: .35em; }
+.pile.empty .pile-n { border-color: #ff4d4d; color: #ff8a8a; }
+.pile:hover i { border-color: #ffcc33; }
+#deckTip { position: fixed; z-index: 320; display: none; pointer-events: none; max-width: min(820px, 70vw); max-height: 88vh; overflow: hidden;
+  background: #12050af4; border: 2px solid #c9475f; border-radius: 14px; padding: 10px 14px 16px; box-shadow: 0 10px 40px #000c; }
+#deckTip.show { display: block; }
+#deckTip h4 { margin: 0; color: var(--gold); }
+#deckTip p { margin: 2px 0 8px; font-size: .8em; }
+.deck-tip-grid { display: flex; flex-wrap: wrap; gap: 16px 10px; }
+.deck-tip-grid .card { font-size: 10.5px; }
+
+/* ============================ จั่วการ์ด / สับเข้าเด็ค ============================ */
+.hand.player .card.drawn, .hand.player .card.popped { animation: drawFly var(--dur, 620ms) cubic-bezier(.25,.8,.3,1) both; }
+.hand.player .card.popped { animation-name: drawPop; }
+.hand.enemy .card-back.drawn { animation: drawFly var(--dur, 620ms) cubic-bezier(.25,.8,.3,1) both; }
+@keyframes drawFly {
+  0% { transform: translate(var(--fx), var(--fy)) scale(.3) rotateY(180deg); opacity: 0; }
+  15% { opacity: 1; }
+  70% { transform: translate(0, -1.2em) scale(1.06) rotateY(0); box-shadow: 0 0 1.4em #ffcc33aa; }
+  100% { transform: none; }
+}
+@keyframes drawPop {
+  0% { transform: translateY(-2em) scale(.2); opacity: 0; box-shadow: 0 0 2em #ffcc33; }
+  60% { transform: translateY(-1em) scale(1.08); opacity: 1; box-shadow: 0 0 1.6em #ffcc33cc; }
+  100% { transform: none; }
+}
+.fly-card { position: fixed; left: 0; top: 0; z-index: 310; pointer-events: none; will-change: transform, opacity; }
+.fly-card .card { font-size: 11px; box-shadow: 0 0 1.4em #9b6bffaa, 0 .3em .9em #000a; }
+.deck-pile.bump .pile { animation: pileBump .35s ease-out; }
+@keyframes pileBump { 40% { transform: scale(1.15); filter: brightness(1.6) drop-shadow(0 0 8px #ffcc33); } }
+
+/* ============================ กรอบระยิบระยับ: ลงแล้วเกิดคอมโบ / เงื่อนไขครบ ============================ */
+@property --ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.hand.player .card.combo-ready { box-shadow: 0 0 1.6em #ffcc3399, 0 .3em .9em #000a; }
+.hand.player .card.combo-ready::before { content: ''; position: absolute; inset: -.42em; border-radius: 1.05em; padding: .26em; z-index: 5; pointer-events: none;
+  background: conic-gradient(from var(--ang), #ffcc33, #ff4fa3, #ffffff, #9b6bff, #3dd9ff, #ffcc33);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: spinRing 2.2s linear infinite; filter: drop-shadow(0 0 .35em #ffcc33); }
+.hand.player .card.ready-cond::before { background: conic-gradient(from var(--ang), #3dd9ff, #ffffff, #7dff8f, #ffcc33, #3dd9ff); filter: drop-shadow(0 0 .35em #3dd9ff); }
+.hand.player .card.combo-ready::after { content: ''; position: absolute; inset: -.6em; z-index: 6; pointer-events: none;
+  background:
+    radial-gradient(circle, #fff 0 .09em, transparent .14em) 8% 12% / 2.2em 2.2em no-repeat,
+    radial-gradient(circle, #fff 0 .08em, transparent .13em) 92% 30% / 2em 2em no-repeat,
+    radial-gradient(circle, #fff 0 .1em, transparent .15em) 15% 85% / 2.4em 2.4em no-repeat,
+    radial-gradient(circle, #fff 0 .08em, transparent .13em) 85% 92% / 2em 2em no-repeat;
+  animation: twinkle 1.3s ease-in-out infinite alternate; }
+.combo-badge.cond { background: linear-gradient(#5be3ff, #1478c8); border-color: #d2f6ff; box-shadow: 0 0 .8em #3dd9ff; }
+@keyframes spinRing { to { --ang: 360deg; } }
+@keyframes twinkle { from { opacity: .2; transform: scale(.96); } to { opacity: 1; transform: scale(1.02); } }
+
+/* ============================ การ์ดบิน (เรียกจากเด็ค / วางกับดัก) ============================ */
+.fly2 { position: fixed; left: 0; top: 0; width: 121px; height: 180px; z-index: 315; pointer-events: none; transform-style: preserve-3d; }
+.fly2 .face { position: absolute; inset: 0; backface-visibility: hidden; }
+.fly2 .face .card { font-size: 11px; box-shadow: 0 0 1.4em #ffcc33aa, 0 .3em .9em #000a; }
+.fly2 .face.back { transform: rotateY(180deg); }
+.fly2 .fly-back { width: 100%; height: 100%; border-radius: .6em; }
+.trap-icon.trap-new { animation: trapSet .9s ease-out both; }
+@keyframes trapSet { 0% { opacity: 0; transform: scale(2.2) rotate(-90deg); } 40% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 1.4em #ffcc33, 0 0 2.4em #9b6bff; } 100% { transform: none; } }
+
+/* ============================ ฮีโร่พ่ายแพ้: ร้าวแล้วแตก ============================ */
+.hero-row.shattered .hero { visibility: hidden; }
+.shatter { position: fixed; z-index: 330; pointer-events: none; }
+.shatter .shard { position: absolute; inset: 0; will-change: transform, opacity; }
+.shatter .cracks { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.shatter .crack { fill: none; stroke: #ffffffee; stroke-width: 1.6; stroke-linecap: round; filter: drop-shadow(0 0 2px #fff); }
+.shatter .crack-dark { fill: none; stroke: #000a; stroke-width: 3.4; stroke-linecap: round; }
+.shatter.jolt { animation: jolt .18s; }
+.shatter.flash::after { content: ''; position: absolute; inset: -10%; border-radius: 50%; background: radial-gradient(#fff, #ffffff00 70%); animation: flashOut .35s ease-out forwards; }
+@keyframes jolt { 30% { translate: -3px 2px; } 60% { translate: 3px -1px; } }
+@keyframes flashOut { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(1.6); } }
+
+/* ---- แก้: กรอบเงื่อนไขครบไม่บังการ์ดใบข้างๆ และไม่ทับป้าย ---- */
+.hand.player .card { isolation: isolate; }
+.hand.player .card.combo-ready::before { inset: -.2em; border-radius: .75em; padding: .24em; z-index: 3; }
+.hand.player .card.combo-ready::after { inset: 0; z-index: 3; }
+.card .atk, .card .hp { z-index: 4; }
+.combo-badge { z-index: 8; }
+/* ซ่อนมือระหว่างอินโทร แล้วค่อยแจก */
+.pregame .hand .card, .pregame .hand .card-back { visibility: hidden; }
+
+/* ============================ ฮีล / บัฟ ============================ */
+.ptc { position: fixed; z-index: 210; pointer-events: none; font-weight: 800; transform: translate(-50%, -50%); animation: ptcRise 900ms ease-out both; }
+.ptc-heal { color: #6dff8a; text-shadow: 0 0 6px #2bd94e, 0 0 2px #000; }
+.ptc-buff { color: #ffd34d; text-shadow: 0 0 6px #ff9d00, 0 0 2px #000; }
+.ptc-debuff { color: #ff6b6b; text-shadow: 0 0 6px #c40000, 0 0 2px #000; animation-name: ptcFall; }
+@keyframes ptcRise { 0% { opacity: 0; margin-top: 10px; } 20% { opacity: 1; } 100% { opacity: 0; margin-top: -55px; } }
+@keyframes ptcFall { 0% { opacity: 0; margin-top: -20px; } 20% { opacity: 1; } 100% { opacity: 0; margin-top: 30px; } }
+.glow-ring { position: fixed; z-index: 205; pointer-events: none; border-radius: 45%; animation: glowPulse 800ms ease-out forwards; }
+.glow-heal { box-shadow: 0 0 0 .2em #6dff8a, 0 0 1.6em #2bd94e, inset 0 0 1.4em #6dff8a88; }
+.glow-buff { box-shadow: 0 0 0 .2em #ffd34d, 0 0 1.6em #ff9d00, inset 0 0 1.4em #ffd34d88; }
+.glow-debuff { box-shadow: 0 0 0 .2em #ff6b6b, 0 0 1.6em #c40000, inset 0 0 1.4em #ff6b6b88; }
+@keyframes glowPulse { 0% { opacity: 0; transform: scale(.9); } 30% { opacity: 1; transform: scale(1.06); } 100% { opacity: 0; transform: scale(1.15); } }
+.f-buff { color: #ffd34d; font-size: 26px; }
+.f-debuff { color: #ff6b6b; font-size: 24px; }
+
+/* มินเนี่ยนถูกควบคุม */
+.ptc-charm { font-size: 18px; animation-name: ptcRise; }
+
+/* ---- Blitzø v3: ค้างเหนือช่องบนสลิง แล้วปล่อยตัวหล่นลงบอร์ด ---- */
+.lg-body { position: absolute; left: 0; top: 0; }
+.lg-blitzo .lg-rope { height: calc(var(--ly) - var(--sz) * 1.4); transform-origin: 50% 0; }
+.lg-blitzo .lg-hook { top: calc(var(--ly) - var(--sz) * 1.4 - 14px); }
+.lg-blitzo .lg-portrait { top: calc(var(--ly) - var(--sz) * 1.4); }
+.lg-blitzo .lg-gun { top: calc(var(--ly) - var(--sz) * .92); }
+
+/* ============================ Stolas: ร่างปีศาจกางปีก ============================ */
+.legend-stage.lg-stolas { background: radial-gradient(ellipse at 50% 42%, #2a0006aa, #0c0306cc 75%); }
+.lg-stolas .st-glow { position: absolute; inset: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, #ff1a1a66, #8a000044 40%, transparent 70%); }
+.lg-stolas .st-demon { position: absolute; width: min(92%, 900px); transform: translate(-50%, -50%) scale(.4); opacity: 0; pointer-events: none; }
+.lg-stolas .st-demon img { width: 100%; display: block;
+  -webkit-mask-image: radial-gradient(ellipse 58% 62% at 50% 48%, #000 52%, transparent 100%);
+          mask-image: radial-gradient(ellipse 58% 62% at 50% 48%, #000 52%, transparent 100%);
+  filter: saturate(1.25) contrast(1.1) drop-shadow(0 0 30px #ff1a1a); transform-origin: 50% 55%; }
+.lg-stolas.st-reveal .st-glow { animation: stGlow calc(var(--k) * 1.8s) ease-in-out forwards; }
+.lg-stolas.st-reveal .st-demon { animation: stRise calc(var(--k) * .6s) cubic-bezier(.2,1.4,.4,1) forwards; }
+.lg-stolas.st-reveal .st-demon img { animation: wingBeat calc(var(--k) * .85s) ease-in-out .4s infinite; }
+.lg-stolas.st-gather .st-demon { animation: stShrink calc(var(--k) * .4s) ease-in forwards; }
+.lg-stolas .st-orb { position: absolute; width: 4.5em; height: 4.5em; border-radius: 50%; transform: translate(-50%, -50%) scale(0); pointer-events: none;
+  background: radial-gradient(circle, #fff 0 18%, #ff8a8a 35%, #ff1a1a 55%, #ff1a1a00 72%); box-shadow: 0 0 2.5em #ff1a1a; }
+.lg-stolas.st-gather .st-orb { animation: orbIn calc(var(--k) * .4s) ease-out forwards; }
+.lg-stolas.st-impact .st-orb { opacity: 0; transition: opacity .15s; }
+.lg-stolas .st-wave { position: absolute; width: 16em; height: 5em; border-radius: 50%; transform: translate(-50%, -50%) scale(.1); opacity: 0; pointer-events: none;
+  border: .35em solid #ff4d4d; box-shadow: 0 0 2em #ff1a1a, inset 0 0 1.5em #ff1a1a; }
+.lg-stolas .st-wave.show { animation: stWave calc(var(--k) * .7s) ease-out forwards; }
+.lg-stolas .st-title { bottom: auto; top: 6%; }
+.lg-stolas .st-title b { color: #ff4d4d; text-shadow: 0 0 .35em #ff1a1a, 0 .06em 0 #4a0008, 0 .1em 0 #000; letter-spacing: .25em; }
+.st-feather { position: absolute; width: .7em; height: 2em; border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, #1a0003, #5a0010 45%, #ff2d2d 50%, #5a0010 55%, #1a0003); box-shadow: 0 0 6px #ff1a1a88;
+  animation: featherFall 1.8s ease-in forwards; }
+@keyframes stGlow { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: .7; } }
+@keyframes stRise { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); filter: brightness(3); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: none; } }
+@keyframes wingBeat { 0%, 100% { transform: scaleX(1) scaleY(1); } 50% { transform: scaleX(1.06) scaleY(.98); } }
+@keyframes stShrink { to { opacity: 0; transform: translate(-50%, -50%) scale(.08); filter: brightness(3); } }
+@keyframes orbIn { from { transform: translate(-50%, -50%) scale(0); } to { transform: translate(-50%, -50%) scale(1); } }
+@keyframes stWave { 0% { opacity: 1; transform: translate(-50%, -50%) scale(.1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); } }
+@keyframes featherFall { 0% { opacity: 0; transform: translate(0, -20px) rotate(0); } 15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), 180px) rotate(var(--rot)); } }
+
+/* Stolas: ใช้ภาพเคลื่อนไหวจากซีรีส์ — ไม่ต้องทำปีกกระพือเพิ่ม */
+.lg-stolas.st-reveal .st-demon img.anim { animation: none; }
