@@ -402,8 +402,9 @@ async function shatterHero(row) {
   box.remove();
 }
 
-/* ---------- Stolas: การ์ดบินมากลางสนาม → แตกเป็นร่างปีศาจกางปีก → หดเป็นลูกแสงดิ่งลงช่องที่เลือก ---------- */
-LEGEND_FX.stolas = stolasEntrance;
+/* ---------- Stolas (แบบเดิม ใช้ภาพเคลื่อนไหวจากซีรีส์): การ์ดบินมากลางสนาม → แตกเป็นร่างปีศาจกางปีก → หดเป็นลูกแสงดิ่งลงช่องที่เลือก
+   ตอนนี้ใช้ stolasWingsEntrance แทน ถ้าจะกลับไปใช้แบบเดิมให้เปลี่ยนเป็น LEGEND_FX.stolas = stolasEntrance */
+LEGEND_FX.stolas = stolasWingsEntrance;
 const STOLAS_ANIM_MS = 3550;   // ความยาวไฟล์ assets/fx/stolas_demon_anim.webp (71 เฟรม × 50ms)
 async function stolasEntrance(stage, card, owner, ctx) {
   const k = fxK(), sr = stage.getBoundingClientRect();
@@ -461,4 +462,96 @@ async function stolasEntrance(stage, card, owner, ctx) {
   restart($('#bArena'), 'screen-shake');
   stage.querySelector('.st-title').classList.add('show');
   await swait(900);
+}
+
+/* ---------- Stolas (แบบใหม่ วาดเอง): การ์ดลงตรงช่องที่วาง → ปีกดำกางออกจากสองข้างวงกลมแล้วแผ่ใหญ่
+   → หน้าจอมืดลง → ดวงตาสีแดง 4 ดวงของ Stolas ลืมขึ้น → ความมืดหมุนวนเป็นน้ำวนหดหายเข้าไปที่ตัวมินเนี่ยน ---------- */
+// ปีกขวา (โคนปีกอยู่ซ้าย) / flip = ปีกซ้าย กลับด้านภายใน SVG เอง
+const stolasWing = flip => `<svg viewBox="0 0 220 140" preserveAspectRatio="none" aria-hidden="true">
+  <defs><linearGradient id="sxWingG" x1="0" y1="0" x2="1" y2=".6">
+    <stop offset="0" stop-color="#2a0510"/><stop offset=".45" stop-color="#0c0207"/><stop offset="1" stop-color="#000"/></linearGradient></defs>
+  <g${flip ? ' transform="translate(220 0) scale(-1 1)"' : ''}>
+  <path d="M0,52 C30,18 95,2 216,6 L196,30 L212,40 L182,56 L198,70 L162,80 L176,96 L136,100 L146,118 L104,114 L110,132 L70,120 L62,138 L36,116 L0,98 Z"
+    fill="url(#sxWingG)" stroke="#6a0a1c" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M10,60 C60,34 120,22 196,30 M14,72 C62,54 120,50 182,56 M18,84 C60,72 110,76 162,80 M22,94 C56,90 96,98 136,100 M26,104 C50,106 80,112 104,114"
+    fill="none" stroke="#4a0614" stroke-width="2.2" stroke-linecap="round" opacity=".9"/>
+  </g>
+</svg>`;
+// น้ำวนความมืด: แขนเกลียวโค้ง 8 แขนพุ่งจากกลางออกไปขอบ (หมุน + หดด้วย CSS)
+function vortexSVG() {
+  const arm = (i, w, col, op) => {
+    const pts = [];
+    for (let t = 0; t <= 1.0001; t += .05) {
+      const r = 50 * t, a = (i * 45 + t * 250) * Math.PI / 180;
+      pts.push(`${(r * Math.cos(a)).toFixed(2)},${(r * Math.sin(a)).toFixed(2)}`);
+    }
+    return `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+  };
+  const arms = i => arm(i, 6, '#1c0309', 1) + arm(i + .2, 1.2, '#5a0c1e', .8);
+  return `<svg viewBox="-50 -50 100 100" aria-hidden="true">
+    <defs><radialGradient id="sxVc"><stop offset="0" stop-color="#ff2a2a"/><stop offset=".03" stop-color="#8a0010"/><stop offset=".1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+    <circle r="50" fill="#000"/>${Array.from({ length: 8 }, (_, i) => arms(i)).join('')}<circle r="50" fill="url(#sxVc)"/></svg>`;
+}
+async function stolasWingsEntrance(stage, card, owner, ctx) {
+  const k = fxK(), sr = stage.getBoundingClientRect();
+  const land = landingPoint(owner, ctx.pos) || { x: sr.left + sr.width / 2, y: sr.top + sr.height * (owner === 0 ? .62 : .38), w: 90, h: 110 };
+  const lx = land.x - sr.left, ly = land.y - sr.top, d = Math.min(land.w, land.h);   // d = เส้นผ่านศูนย์กลางวงกลมมินเนี่ยน
+  const ex = sr.width / 2, ey = sr.height * .42, u = Math.min(sr.width, sr.height) / 600;   // จุดกลางดวงตา / หน่วยขนาด
+  stage.classList.add('sx');
+  stage.style.setProperty('--d', `${d}px`);
+  stage.style.setProperty('--u', `${u}px`);
+  stage.innerHTML = `
+    <div class="sx-wings" style="left:${lx}px;top:${ly}px"><div class="sx-wing l">${stolasWing(true)}</div><div class="sx-wing r">${stolasWing(false)}</div></div>
+    <div class="sx-unit" style="left:${lx}px;top:${ly}px">${legendPortrait(card)}</div>
+    <div class="sx-dark"></div>
+    <div class="sx-eyes" style="left:${ex}px;top:${ey}px">
+      <i class="e big l"></i><i class="e big r"></i><i class="e small l"></i><i class="e small r"></i></div>
+    <div class="sx-vortex" style="left:${lx}px;top:${ly}px">${vortexSVG()}</div>
+    <div class="lg-title st-title"><b>STOLAS</b><small>🦉 เจ้าชายแห่ง Goetia ลงสนาม!</small></div>
+    <div class="lg-skip">คลิกเพื่อข้าม</div>`;
+  const vortex = stage.querySelector('.sx-vortex');
+  vortex.style.setProperty('--vs', `${Math.hypot(Math.max(lx, sr.width - lx), Math.max(ly, sr.height - ly)) * 2.3}px`);
+
+  // 1) การ์ดบินจากมือมาลงตรงช่องที่วาง แล้วกลายเป็นวงกลมมินเนี่ยน
+  const src = owner === 0 ? document.querySelector(`#pHand [data-hand="${ctx.uid}"]`) : $('#ePlay .card');
+  const from = (src || $(owner === 0 ? '#pHand' : '#eHand')).getBoundingClientRect();
+  const to = { left: land.x - d / 2, top: land.y - d / 2, width: d, height: d };
+  if (!Skip.on) flyBetween(cardHTML(card), from, to, { dur: 620 * k, endScale: d / 150, lift: 40 });
+  await swait(560);
+  stage.classList.add('sx-landed');
+  restart($('#bArena'), 'screen-shake');
+  await swait(420);
+
+  // 2) ปีกดำกางออกซ้ายขวาจากข้างวงกลม มีขนนกสีดำเล็ก ๆ ร่วงลงมาไม่กี่เส้น แล้วหน้าจอค่อย ๆ มืดลง
+  stage.classList.add('sx-unfurl');
+  if (!Skip.on) for (let i = 0; i < 7; i++) {
+    const f = document.createElement('i');
+    f.className = 'sx-feather';
+    const side = i % 2 ? 1 : -1;
+    f.style.left = `${lx + side * d * (.6 + Math.random() * 1.6)}px`;
+    f.style.top = `${ly - d * (.1 + Math.random() * .5)}px`;
+    f.style.setProperty('--dx', `${(Math.random() - .5) * d * 1.2}px`);
+    f.style.setProperty('--rot', `${(Math.random() - .5) * 540}deg`);
+    f.style.animationDelay = `${(250 + Math.random() * 900) * k}ms`;
+    f.style.animationDuration = `${(1500 + Math.random() * 700) * k}ms`;
+    stage.appendChild(f);
+  }
+  await swait(900);
+  stage.classList.add('sx-spread');
+  await swait(1000);
+
+  // 3) ดวงตาสีแดง 4 ดวงลืมขึ้นกลางความมืด → กระพริบตา → หลับตาหายไป
+  stage.classList.add('sx-eyes-on');
+  restart($('#bArena'), 'screen-shake');
+  await swait(900);
+  stage.classList.add('sx-blink');
+  await swait(550);
+  stage.classList.add('sx-eyes-off');
+  await swait(450);
+
+  // 4) ความมืดหมุนวนเป็นน้ำวน หดหายเข้าไปที่ตัวมินเนี่ยน
+  stage.classList.add('sx-swirl');
+  await swait(1050);
+  stage.querySelector('.st-title').classList.add('show');
+  await swait(750);
 }

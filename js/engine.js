@@ -21,7 +21,8 @@ class Game {
     const mkP = (o, d, deckIds, bonusMana) => ({
       o, name: d.name, portrait: d.portrait,
       hero: { kind: 'hero', uid: UID++, owner: o, name: d.name, hp: d.hp, maxHp: d.hp, armor: 0 },
-      deck: shuffle(deckIds.map(id => this.mkCard(id))),
+      // id ที่ไม่มีในข้อมูลการ์ด (เช่น เซฟจากเวอร์ชันเก่า) ถูกตัดทิ้ง — ไม่งั้นการจั่วจะพังทั้งเกม
+      deck: shuffle(deckIds.filter(id => CARDS[id] || (console.warn('ไม่พบการ์ด', id), false)).map(id => this.mkCard(id))),
       hand: [], board: [], traps: [],
       mana: 0, maxMana: bonusMana || 0, fatigue: 0,
       relics: d.relics || [], spellsThisTurn: 0,
@@ -152,6 +153,7 @@ class Game {
         continue;
       }
       const h = p.deck.shift();
+      if (!h || !h.card) { i--; continue; }   // กันการ์ดเสีย: ข้ามไปจั่วใบถัดไป
       // การ์ด "เมื่อจั่ว" ทำงานทันที แล้วจั่วใบใหม่แทน
       if (h.card.castOnDraw) {
         this.log(`⚡ ${p.name} จั่วได้ ${h.card.name}!`, h.id);
@@ -165,9 +167,11 @@ class Game {
     }
   }
 
+  // คืนการ์ดที่เข้ามือ (หรือ null ถ้าถูกเผาเพราะมือเต็ม)
   addHand(o, id, costDelta = 0) {
-    if (!id) return;
-    this.toHand(o, this.mkCard(id, costDelta));
+    if (!id) return null;
+    const h = this.mkCard(id, costDelta);
+    return this.toHand(o, h) ? h : null;
   }
   /* ---------------- มือเต็ม / การ์ดล้นมือ ----------------
      ทุกการ์ดที่จะเข้ามือผ่านตรงนี้ — ถ้ามือเต็ม (10 ใบ) การ์ดใบนั้นถูกเผาทิ้ง

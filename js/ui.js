@@ -40,9 +40,33 @@ let SPEED = 'normal';
 try { const s = localStorage.getItem('hellsdeck_speed'); if (SPEEDS[s]) SPEED = s; } catch (e) { /* ignore */ }
 function setSpeed(s) { SPEED = s; try { localStorage.setItem('hellsdeck_speed', s); } catch (e) { /* ignore */ } }
 const wait = ms => sleep(ms * SPEEDS[SPEED].k);
+const HEAVY_HIT = 5;   // พลังโจมตีตั้งแต่เท่านี้ขึ้นไป ตีแล้วจอสั่นแรง
+// จำว่าผู้เล่นพับแถบข้างไว้หรือไม่ (ไม่ส่งค่า = อ่าน)
+function sideCollapsed(v) {
+  try { if (v === undefined) return localStorage.getItem('hellsdeck_side') === '1'; localStorage.setItem('hellsdeck_side', v ? '1' : '0'); } catch (e) { /* ignore */ }
+  return !!v;
+}
 
+/* ข้อความคอมโบ (<i>คอมโบ …</i> / ทีม I.M.P.) ไม่แสดงบนหน้าการ์ด — จะเห็นก็ต่อเมื่อชี้การ์ดค้างไว้ */
+const COMBO_RE = /(?:^|<br>\s*)<i>(?:คอมโบ|ทีม I\.M\.P\.)[\s\S]*?(?=<br>|$)/g;
+function cardFaceText(c) { return (c.text || '').replace(COMBO_RE, '').replace(/^\s*<br>/, ''); }
+function comboParts(c) { return ((c.text || '').match(COMBO_RE) || []).map(s => s.replace(/^<br>\s*/, '')); }
+// การ์ดที่คอมโบกับใบนี้ได้: คู่หูทั้งสองทาง + สมาชิกทีม I.M.P. คนอื่น (ถ้าเป็นสมาชิก)
+function comboCards(c) {
+  const ids = new Set(comboPartners(c.id));
+  const team = [...IMP_TEAM, 'loona'];
+  if (team.includes(c.id)) team.forEach(id => ids.add(id));
+  ids.delete(c.id);
+  return [...ids].filter(id => CARDS[id]);
+}
+function comboHTML(c) {
+  const parts = comboParts(c), mates = comboCards(c);
+  if (!parts.length && !mates.length) return '';
+  return `<div class="combo-hint"><h4>💞 คอมโบ</h4>${parts.map(p => `<p>${p}</p>`).join('')}
+    ${mates.length ? `<div class="combo-mates-cap">การ์ดที่คอมโบด้วยได้</div><div class="combo-mates">${mates.map(id => cardHTML(CARDS[id])).join('')}</div>` : ''}</div>`;
+}
 function textSizeCls(c) {
-  const n = stripTags(c.text).length;
+  const n = stripTags(cardFaceText(c)).length;
   return n > 135 ? 'xlong' : n > 90 ? 'long' : '';
 }
 function cardHTML(c, o = {}) {
@@ -55,7 +79,7 @@ function cardHTML(c, o = {}) {
     ${artHTML('cards', c.id, cardEmoji(c))}
     <div class="cname">${rar === 'legendary' ? '🌟 ' : ''}${c.name}</div>
     <div class="ctype">${TYPE_LABEL[c.type]}${rar ? ' · ' + CARD_RARITY_LABEL[rar] : ''}${tags}</div>
-    <div class="ctext ${textSizeCls(c)}">${c.text || ''}</div>
+    <div class="ctext ${textSizeCls(c)}">${cardFaceText(c)}</div>
     ${c.type === 'minion' ? (b => `<div class="atk ${b.a ? 'buffed' : ''}">${c.atk + (b.a || 0)}</div><div class="hp ${b.h ? 'buffed' : ''}">${c.hp + (b.h || 0)}</div>`)(o.bonus || {}) : ''}
     ${o.extra || ''}
   </div>`;
@@ -126,10 +150,12 @@ const CardTip = {
     const gl = !inBattle || withCard ? glossaryHTML(c) : '';
     const unitEl = inBattle && t.closest('#bArena .unit');
     const buffs = unitEl && BattleUI.g ? buffSrcHTML(BattleUI.g.findEntity(+unitEl.dataset.uid)) : '';
-    if (!withCard && !rel && !gl && !buffs) return;
+    const combo = comboHTML(c);
+    if (!withCard && !rel && !gl && !buffs && !combo) return;
     this.el.innerHTML = `
       ${withCard ? `<div class="tip-main">${cardHTML(c)}</div>` : ''}
       <div class="tip-side">
+        ${combo}
         ${buffs}
         ${gl ? `<h4>📘 ความสามารถ</h4>${gl}` : ''}
         ${rel}
@@ -148,6 +174,35 @@ const CardTip = {
 };
 window.addEventListener('DOMContentLoaded', () => CardTip.init());
 
+/* ประตูมิติของ Stolas: วงรีแนวตั้ง ข้างในมืดสีเลือดหมู ขอบเป็นไฟฟ้าสีม่วงขาวที่หยักสั่นตลอดเวลา
+   (ความหยักมาจาก feTurbulence ที่สุ่ม seed ใหม่ทุก 60ms แล้วบิดเส้นขอบด้วย feDisplacementMap) */
+let portalN = 0;
+function portalSVG() {
+  const n = ++portalN, E = 'cx="50" cy="80" rx="36" ry="70"';
+  return `<svg viewBox="-20 -20 140 200" aria-hidden="true">
+    <defs>
+      <radialGradient id="ptv${n}" cx="50%" cy="58%" r="62%">
+        <stop offset="0" stop-color="#5a0a1e"/><stop offset=".5" stop-color="#2a0412"/><stop offset="1" stop-color="#0b0108"/>
+      </radialGradient>
+      <filter id="ptw${n}" x="-40%" y="-30%" width="180%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency=".09 .05" numOctaves="2" seed="1" result="n">
+          <animate attributeName="seed" values="1;7;3;9;5;2;8;4" dur=".48s" calcMode="discrete" repeatCount="indefinite"/>
+        </feTurbulence>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="11" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="ptb${n}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter>
+    </defs>
+    <ellipse ${E} fill="none" stroke="#b77dff" stroke-width="20" opacity=".55" filter="url(#ptb${n})"/>
+    <g filter="url(#ptw${n})">
+      <ellipse ${E} fill="url(#ptv${n})"/>
+      <ellipse class="pt-swirl" cx="50" cy="86" rx="22" ry="44" fill="none" stroke="#7a1030" stroke-width="5" opacity=".6"/>
+      <ellipse ${E} fill="none" stroke="#8f3dff" stroke-width="10"/>
+      <ellipse ${E} fill="none" stroke="#d9a8ff" stroke-width="5"/>
+      <ellipse ${E} fill="none" stroke="#fff" stroke-width="2"/>
+    </g>
+  </svg>`;
+}
+
 /* ============================ หน้าจอต่อสู้ ============================ */
 const BattleUI = {
   g: null, sel: null, busy: false, logs: [], onOver: null, overFired: false,
@@ -164,11 +219,14 @@ const BattleUI = {
       onRecruit: (o, m) => this.onRecruit(o, m),
       onSteal: m => this.onSteal(m),
       onFatigue: (o, n) => this.onFatigue(o, n),
+      onPortal: (o, m, h) => this.onPortal(o, m, h),
       banner: t => this.banner(t),
     };
     $('#app').innerHTML = `
-      <div id="battle">
+      <div id="battle" class="${sideCollapsed() ? 'side-collapsed' : ''}">
         <aside class="b-side">
+          <button class="side-toggle" id="bSideToggle" title="พับ / ขยายแถบรายละเอียด"></button>
+          <div class="b-mini" id="bMini"></div>
           <div class="b-boss-info"><b>${g.boss.name}</b><small>${g.boss.title} — ${g.boss.desc}</small></div>
           <div class="b-preview-wrap">
             <div class="b-preview" id="bPreview"><div class="hint">ชี้เมาส์ที่การ์ดหรือมินเนี่ยนเพื่อดูรายละเอียด</div></div>
@@ -206,6 +264,12 @@ const BattleUI = {
       setSpeed(s);
       document.querySelectorAll('#bSpeed [data-speed]').forEach(b => b.classList.toggle('primary', b.dataset.speed === s));
     };
+    $('#bSideToggle').onclick = () => {
+      const on = !$('#battle').classList.contains('side-collapsed');
+      $('#battle').classList.toggle('side-collapsed', on);
+      sideCollapsed(on);
+      CardTip.hide();
+    };
     $('#bConcede').onclick = () => {
       if (this.g.over || !confirm('ยอมแพ้การต่อสู้นี้? (รันจะจบลง)')) return;
       this.g.hero(0).hp = 0; this.g.checkOver(); this.render();
@@ -215,8 +279,9 @@ const BattleUI = {
     this.handAt = null; this.eHandAt = null; this.lastDrawAt = 0; this.lastRecruitAt = 0; this.trapAt = [[], []];
     document.addEventListener('keydown', this.keyHandler);
 
-    g.start();
     this.busy = true;
+    // ถ้าเริ่มเกมพัง (เช่น การ์ดเสียในเด็ค) อย่าปล่อยหน้าจอว่าง — บันทึก error แล้วเล่นต่อจากสถานะที่มี
+    try { g.start(); } catch (err) { console.error('เริ่มเกมไม่สำเร็จ', err); if (g.turnCount === 0) g.startTurn(g.first ?? 0); }
     this.render();
     // อินโทร VS → โยนเหรียญ → เริ่มเทิร์นแรก
     $('#bArena').classList.add('pregame');   // ซ่อนมือไว้ระหว่างอินโทร แล้วค่อยแจกการ์ด
@@ -345,6 +410,7 @@ const BattleUI = {
     const hpCls = m.hp < m.maxHp ? 'damaged' : m.hp > c.hp ? 'buffed' : '';
     return `<div class="${cls}" data-uid="${m.uid}" data-cid="${m.id}">
       ${artHTML('cards', m.id, cardEmoji(c))}
+      ${m.kw.windfury ? (d => `<i class="wf" style="--wd:${d}ms"><b></b><b></b><b></b></i>`)(-Math.round(performance.now() % 100000)) : ''}
       <div class="m-icons">${icons}</div>
       <div class="m-name">${m.name}</div>
       <div class="m-atk ${atkCls}">${m.atk}</div>
@@ -366,7 +432,7 @@ const BattleUI = {
     let html = '';
     if (handEl) {
       const h = g.P(0).hand.find(x => x.uid === +handEl.dataset.hand);
-      if (h) html = cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus }) + ({ combo: '<p class="note">💞 ลงตอนนี้จะทำคอมโบ!</p>', cond: '<p class="note">✨ เงื่อนไขครบ — ลงตอนนี้ได้โบนัส!</p>' }[readyKind(g, 0, h.card)] || '') + glossaryHTML(h.card);
+      if (h) html = cardHTML(h.card, { cost: g.cost(0, h), bonus: h.bonus }) + comboHTML(h.card) + ({ combo: '<p class="note">💞 ลงตอนนี้จะทำคอมโบ!</p>', cond: '<p class="note">✨ เงื่อนไขครบ — ลงตอนนี้ได้โบนัส!</p>' }[readyKind(g, 0, h.card)] || '') + glossaryHTML(h.card);
     } else if (trapEl) {
       const h = g.P(0).traps.find(x => x.uid === +trapEl.dataset.trap);
       if (h) html = cardHTML(h.card) + '<p class="note">กับดักนี้ซ่อนอยู่ ศัตรูมองไม่เห็น</p>' + glossaryHTML(h.card);
@@ -374,7 +440,7 @@ const BattleUI = {
       const t = g.findEntity(+entEl.dataset.uid);
       if (t && t.kind === 'minion') {
         const kws = Object.keys(t.kw).filter(k => t.kw[k]);
-        html = cardHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + buffSrcHTML(t) + glossaryHTML(t.card, kws);
+        html = cardHTML(t.card) + comboHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + buffSrcHTML(t) + glossaryHTML(t.card, kws);
       } else if (t) {
         const p = g.P(t.owner);
         html = `<div class="hero-preview">${artHTML(p.portrait.folder, p.portrait.id, p.portrait.emoji)}<b>${p.name}</b>
@@ -624,6 +690,23 @@ const BattleUI = {
     a.style.transition = `transform ${ms}ms ease-in`;
     a.style.transform = `translate(${dx * 0.8}px, ${dy * 0.8}px) scale(1.1)`;
     await sleep(ms + 20);
+    if ((m.atk || 0) >= HEAVY_HIT) this.heavyHit(b, m.atk);
+  },
+  // ตัวที่พลังโจมตีสูง (5+) ตีแล้วจอสั่นแรงขึ้นเล็กน้อย + วงกระแทกที่เป้า (8+ แรงขึ้นอีกขั้น)
+  heavyHit(target, atk) {
+    const arena = $('#bArena');
+    if (!arena) return;
+    const mega = atk >= 8;
+    arena.classList.remove('heavy-hit', 'mega');
+    void arena.offsetWidth;
+    arena.classList.add('heavy-hit');
+    if (mega) arena.classList.add('mega');
+    const r = target.getBoundingClientRect();
+    const ring = document.createElement('div');
+    ring.className = `impact-ring${mega ? ' mega' : ''}`;
+    Object.assign(ring.style, { left: `${r.left + r.width / 2}px`, top: `${r.top + r.height / 2}px`, width: `${r.width * 1.3}px`, height: `${r.width * 1.3}px` });
+    document.body.appendChild(ring);
+    setTimeout(() => { ring.remove(); arena.classList.remove('heavy-hit', 'mega'); }, 520);
   },
 
   fx(type, t, n) {
@@ -735,7 +818,8 @@ const BattleUI = {
     const play = (el, info, pile) => {
       const el0 = now - info.t;
       if (el0 >= DUR) return;
-      if (info.from === 'deck' && pile) {
+      if (info.from === 'portal') el.classList.add('portaled');
+      else if (info.from === 'deck' && pile) {
         const pr = pile.getBoundingClientRect(), r = el.getBoundingClientRect();
         el.style.setProperty('--fx', `${pr.left + pr.width / 2 - (r.left + r.width / 2)}px`);
         el.style.setProperty('--fy', `${pr.top + pr.height / 2 - (r.top + r.height / 2)}px`);
@@ -954,6 +1038,50 @@ const BattleUI = {
     this.floatText(r, `💀 -${n}`, 'f-dmg f-fatigue');
   },
 
+  /* ---------- Stolas: ประตูมิติเปิดตรงตัวมินเนี่ยน แล้วการ์ดลอยออกจากประตูไปเข้ามือ ----------
+     การ์ดในมือถูกซ่อนไว้จนกว่าการ์ดที่ลอยมาจะถึง ฝั่งบอสลอยออกมาแบบคว่ำหน้า (ไม่เปิดเผยการ์ด)
+     หลายประตูพร้อมกันจะทยอยเปิดทีละอัน */
+  onPortal(o, m, h) {
+    if (!$('#bArena')) return;
+    const k = SPEEDS[SPEED].k, now = performance.now();
+    const OPEN = 650 * k, FLY = 820 * k;
+    const start = Math.max(now, (this.portalAt || 0) + 600 * k);
+    this.portalAt = start;
+    const arrive = start + OPEN + FLY * .85;
+    if (o === 0) { if (this.handAt) this.handAt[h.uid] = { t: arrive, from: 'portal' }; }
+    else if (this.eHandAt) this.eHandAt.push({ t: arrive, from: 'portal' });
+    this.lastDrawAt = Math.max(this.lastDrawAt || 0, arrive);   // การ์ดที่จั่วต่อจากนี้รอให้ใบนี้ถึงมือก่อน
+    const r = document.querySelector(`#bArena [data-uid="${m.uid}"]`)?.getBoundingClientRect();
+    setTimeout(() => this.playPortal(o, m, h, OPEN, FLY, r), start - now);
+  },
+  async playPortal(o, m, h, OPEN, FLY, r0) {
+    const g = this.g;
+    if (!g || !$('#bArena')) return;
+    const r = document.querySelector(`#bArena [data-uid="${m.uid}"]`)?.getBoundingClientRect() || r0;
+    if (!r) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const p = document.createElement('div');
+    p.className = 'portal-fx';
+    // ประตูวงรีแนวตั้งสูงกว่าตัวมินเนี่ยน ขอบล่างอยู่ราวเท้า
+    const ph = Math.round(r.height * 1.55), pw = Math.round(ph * .6);
+    Object.assign(p.style, { left: `${cx}px`, top: `${cy - r.height * .18}px`, width: `${pw}px`, height: `${ph}px` });
+    p.style.setProperty('--open', `${OPEN}ms`);
+    p.style.setProperty('--r', `${Math.round(ph / 2)}px`);
+    p.innerHTML = portalSVG() + '<i class="flash"></i>'
+      + Array.from({ length: 12 }, () => `<b style="--a:${Math.round(Math.random() * 360)}deg;--d:${(.35 + Math.random() * .5).toFixed(2)};--t:${Math.round(Math.random() * 900)}ms"></b>`).join('');
+    document.body.appendChild(p);
+    await sleep(OPEN);
+    if (this.g !== g) { p.remove(); return; }
+    const to = o === 0 ? document.querySelector(`#pHand [data-hand="${h.uid}"]`) : [...document.querySelectorAll('#eHand .card-back')].pop();
+    const tr = (to || $(o === 0 ? '#pHand' : '#eHand')).getBoundingClientRect();
+    p.classList.add('emit');
+    flyBetween(o === 0 ? cardHTML(h.card) : null, { left: cx - 15, top: cy - 22, width: 30, height: 44 }, tr,
+      { dur: FLY, endScale: Math.max(.4, Math.min(1, tr.width / 121)), lift: 70 });
+    await sleep(FLY * .45);
+    p.classList.add('closing');
+    setTimeout(() => p.remove(), 450 * SPEEDS[SPEED].k);
+  },
+
   // การ์ดล้นมือ: แสดงการ์ดใบนั้นไหม้หายไปใกล้มือของเจ้าของ
   onBurn(o, h) {
     if (!$('#bArena')) return;
@@ -1006,6 +1134,13 @@ const BattleUI = {
       ? `<div class="log-entry has-card" data-cid="${x.cid}" data-tip="card">${x.m}</div>`
       : `<div class="log-entry">${x.m}</div>`).join('');
     el.scrollTop = el.scrollHeight;
+    // แถบย่อ (ตอนพับแถบข้าง): 10 รายการล่าสุดที่มีการ์ด เป็นรูปการ์ดเล็ก ๆ ชี้ค้างเพื่อดูการ์ดเต็ม — ล่าสุดอยู่บน
+    const mini = $('#bMini');
+    if (mini) mini.innerHTML = this.logs.filter(x => x.cid).slice(-10).reverse().map(x => {
+      const c = CARDS[x.cid], foe = /^🔴|🪤 กับดักของ/.test(x.m) || x.m.includes(this.g?.boss?.name);
+      return `<div class="mini-entry ${foe ? 'foe' : ''}" data-cid="${x.cid}" data-tip="card" title="${stripTags(x.m).replace(/"/g, '&quot;')}">
+        ${artHTML('cards', c.id, cardEmoji(c))}<span class="mini-cost">${c.cost}</span></div>`;
+    }).join('');
   },
 
   showResult() {

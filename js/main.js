@@ -148,6 +148,7 @@ function showHeroSelect(sel) {
 function showPicker({ title, sub, ids, exact, max, allowSkip, onDone, onBack }) {
   const limit = exact || max;
   const sel = new Set();
+  let finished = false;
   setScreen(`
     <div class="screen">
       <header class="s-head"><h2>${title}</h2><p>${sub}</p></header>
@@ -169,8 +170,9 @@ function showPicker({ title, sub, ids, exact, max, allowSkip, onDone, onBack }) 
       return;
     }
     const a = e.target.closest('[data-pk]')?.dataset.pk;
-    if (a === 'ok' && !$('#pkOk').disabled) onDone([...sel]);
-    else if (a === 'skip') onDone([]);
+    if ((a === 'ok' || a === 'skip') && finished) return;   // กันกดยืนยันซ้ำ (ดับเบิลคลิก) แล้วการ์ดเข้าเด็คสองรอบ
+    if (a === 'ok' && !$('#pkOk').disabled) { finished = true; onDone([...sel]); }
+    else if (a === 'skip') { finished = true; onDone([]); }
     else if (a === 'back') onBack();
   });
   function upd() {

@@ -241,7 +241,8 @@ M('cash_buckzo', 'Cash Buckzo', 4, 4, 3, { pool: 1, rar: 'rare', tags: ['Imp'], 
 M('stolas', 'Stolas', 6, 4, 7, { pool: 1, rar: 'legendary', tags: ['Goetia'], emoji: '🦉',
   text: 'สิ้นเทิร์นของคุณ: เพิ่มเวทมนตร์สุ่มเข้ามือ<br><i>คอมโบ Blitzø:</i> ทั้งคู่ +2/+2 และ Blitzø ได้ <b>Windfury</b>',
   battlecry: (g, o, t, s) => stolitz(g, o, s),
-  onTurnEnd: (g, o) => g.addHand(o, rnd(POOL_SPELLS)) });
+  // เวทที่ได้ลอยออกมาจากประตูมิติของ Stolas บนบอร์ด (แอนิเมชันใน BattleUI.onPortal)
+  onTurnEnd: (g, o, m) => { const h = g.addHand(o, rnd(POOL_SPELLS)); if (h) g.ui.onPortal && g.ui.onPortal(o, m, h); } });
 M('octavia', 'Octavia', 2, 2, 3, { pool: 1, rar: 'legendary', tags: ['Goetia'], emoji: '🌙',
   text: 'ทุกครั้งที่คุณร่ายเวทมนตร์ ได้ +1/+1<br><i>คอมโบ Stolas (พ่อลูก):</i> จั่ว 2 ใบ',
   comboLabel: '🦉 Stolas + Octavia', comboFx: (g, o) => g.draw(o, 2),
@@ -891,7 +892,7 @@ const HEROES = {
   blitzo: { id: 'blitzo', name: 'Blitzø', title: 'บอสแห่ง I.M.P.', emoji: '🔫',
     desc: 'สายบุก — Charge, ยิงกระจาย และบัฟทีม I.M.P.',
     deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'hellfire_bolt', 'imp_phone', 'brimstone_shot', 'blitzo', 'bullet_storm', 'office_meeting'],
-    tips: ['Blitzø มี <b>Charge</b> ลงแล้วตีหน้าบอสได้ทันที', 'Office Meeting บัฟมินเนี่ยน I.M.P. ทั้งกระดาน +2/+2', 'ตัวละครหลักหลายตัวเก่งขึ้นเมื่ออยู่ร่วมกับคนที่สนิทกันในเรื่อง — ลองสังเกตข้อความ <i>คอมโบ</i> บนการ์ด'] },
+    tips: ['Blitzø มี <b>Charge</b> ลงแล้วตีหน้าบอสได้ทันที', 'Office Meeting บัฟมินเนี่ยน I.M.P. ทั้งกระดาน +2/+2', 'ตัวละครหลักหลายตัวเก่งขึ้นเมื่ออยู่ร่วมกับคนที่สนิทกันในเรื่อง — ลองชี้การ์ดค้างไว้เพื่อดูคอมโบ'] },
   moxxie: { id: 'moxxie', name: 'Moxxie', title: 'มือปืนนักวางแผน', emoji: '🎯',
     desc: 'สายควบคุม — กับดัก, ยิงมินเนี่ยนศัตรู และตั้งรับ',
     deck: ['imp_bouncer', 'imp_bouncer', 'imp_brute', 'imp_hitman', 'hellfire_bolt', 'brimstone_shot', 'first_aid', 'moxxie', 'ambush', 'decoy'],
@@ -917,22 +918,34 @@ const BOSSES = [
       ['v_fan', 3], ['v_manager', 2], ['v_tour', 2]] },
   { id: 'crimson', name: 'Crimson', title: 'เจ้าพ่อแก๊งค์', hp: 30, emoji: '🎩', desc: 'ลูกน้องเต็มบอร์ด ยิงสุ่ม และระเบิดเพลิง',
     deck: [['c_thug', 4], ['c_gunman', 3], ['c_bodyguard', 2], ['c_call_gang', 2], ['c_molotov', 2], ['c_knife', 2], ['c_crimson', 1],
-      ['c_lieutenant', 2], ['c_recruit', 2], ['c_backup', 2]] },
+      ['c_lieutenant', 2], ['c_recruit', 2], ['c_backup', 2],
+      // เพิ่มตามระดับบอส (การ์ดทั่วไปที่เข้าธีม): มือปืน + ยิงสุ่ม
+      ['imp_hitman', 1], ['bullet_storm', 1], ['wally', 1]] },
   { id: 'andrealphus', name: 'Andrealphus', title: 'เจ้าชายน้ำแข็ง', hp: 50, emoji: '🦚', desc: 'แช่แข็งทุกสิ่ง กำแพงน้ำแข็ง และเกราะหนา',
     deck: [['a_ice_imp', 4], ['a_golem', 3], ['a_wall', 2], ['a_frostbolt', 3], ['a_blizzard', 2], ['a_armor', 1], ['a_icetrap', 2], ['a_andrealphus', 1],
-      ['a_sculptor', 3], ['a_frost_knight', 2], ['a_prison', 2], ['a_legion', 1]] },
+      ['a_sculptor', 3], ['a_frost_knight', 2], ['a_prison', 2], ['a_legion', 1],
+      // แช่แข็งทั้งกระดาน + กับดักตาข่าย + กำแพงตัวใหญ่
+      ['frozen_wastes', 1], ['bounty_net', 2], ['demon_brute', 1]] },
   { id: 'paimon', name: 'Paimon', title: 'กษัตริย์แห่ง Goetia', hp: 70, emoji: '🦁', desc: 'ทหารองครักษ์ไม่สิ้นสุด และพระราชโองการทำลายล้าง',
     deck: [['p_servant', 4], ['p_guard', 4], ['p_knight', 3], ['p_noble', 2], ['p_decree', 2], ['p_reinforce', 2], ['p_paimon', 1],
-      ['p_herald', 3], ['p_summons', 2], ['p_banish', 2]] },
+      ['p_herald', 3], ['p_summons', 2], ['p_banish', 2],
+      // ราชสำนัก Goetia: นกฮูกรับใช้ ตำราเวท โล่ดวงดาว ดาวห้าแฉก
+      ['owl_familiar', 2], ['grimoire', 1], ['grimoire_keeper', 1], ['astral_ward', 1], ['pentagram_strike', 1], ['banish_portal', 1]] },
   { id: 'mammon', name: 'Mammon', title: 'บาปแห่งความโลภ', hp: 90, emoji: '💰', desc: 'ขโมยการ์ด ขโมยมินเนี่ยน และเก็บภาษีเวทมนตร์',
     deck: [['m_coin', 3], ['m_greedy', 4], ['m_mascot', 2], ['m_guard', 3], ['m_exploit', 2], ['m_money', 1], ['m_tax', 2], ['m_mammon', 1],
-      ['m_accountant', 2], ['m_invest', 2], ['m_buyout', 2], ['m_inflation', 2]] },
+      ['m_accountant', 2], ['m_invest', 2], ['m_buyout', 2], ['m_inflation', 2],
+      // ความโลภ: ขึ้นราคา/ภาษีการ์ดผู้เล่น ลดราคาการ์ดตัวเอง ซื้อสัญญาวิญญาณ
+      ['hellmart_cashier', 2], ['red_tape', 2], ['bureaucrat', 1], ['price_gouge', 1], ['hellmart_sale', 1], ['soul_contract', 2], ['execution', 1]] },
   { id: 'asmodeus', name: 'Asmodeus', title: 'บาปแห่งตัณหา', hp: 120, emoji: '🔥', desc: 'Lifesteal ทั้งกระดาน และยั่วยวนมินเนี่ยนของคุณ',
     deck: [['as_dancer', 4], ['as_bouncer', 3], ['as_fizz', 2], ['as_seduce', 2], ['as_wave', 2], ['as_heartlock', 2], ['as_demon', 2], ['as_asmodeus', 1],
-      ['as_fan', 3], ['as_opening', 2], ['as_forbidden', 2]] },
+      ['as_fan', 3], ['as_opening', 2], ['as_forbidden', 2],
+      // ตัณหา: จูบดูดเลือด โชว์ของ Ozzie's สปาฟื้นฟู งูพิษ วิญญาณหลงทาง
+      ['sinful_kiss', 2], ['ozzies_show', 1], ['ozzies_spa', 1], ['snake_assassin', 2], ['lost_sinner', 2], ['last_stand', 1], ['booby_trap', 1], ['counter_contract', 1]] },
   { id: 'satan', name: 'Satan', title: 'บาปแห่งโทสะ', hp: 150, emoji: '😈', bonusMana: 1, desc: 'ดาเมจมหาศาล และโกรธจัดเมื่อ HP เหลือครึ่ง (เฟส 2)',
     deck: [['sa_wrath', 4], ['sa_brute', 3], ['sa_rager', 1], ['sa_hellfire', 3], ['sa_inferno', 2], ['sa_legion', 2], ['sa_fury', 2], ['sa_satan', 1],
-      ['sa_herald', 2], ['sa_spirit', 3], ['sa_hellgate', 2]],
+      ['sa_herald', 2], ['sa_spirit', 3], ['sa_hellgate', 2],
+      // โทสะ: ปีศาจตัวใหญ่ บัฟโจมตี ฝนไฟ หอกนรก
+      ['demon_brute', 2], ['imp_brute', 2], ['revenge_contract', 2], ['sinful_strength', 2], ['hellfire_rain', 1], ['infernal_lance', 1], ['execution', 1], ['snare', 1], ['booby_trap', 1]],
     onHalf: (g, o) => {
       g.banner('😡 Satan เดือดดาล! — เฟส 2');
       g.summon(o, 'sa_wrath'); g.draw(o, 1);
