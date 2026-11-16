@@ -822,3 +822,32 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 
 /* Stolas: ใช้ภาพเคลื่อนไหวจากซีรีส์ — ไม่ต้องทำปีกกระพือเพิ่ม */
 .lg-stolas.st-reveal .st-demon img.anim { animation: none; }
+
+/* ============================ จั่วตอนเด็คหมด (Fatigue) ============================ */
+.fatigue-card { --frame: #8c8c8c; background: linear-gradient(170deg, #2b2b2b, #0b0b0b 70%); filter: drop-shadow(0 0 14px #ff2d2d); }
+.fatigue-card .art { background: radial-gradient(circle at 50% 40%, #4a4a4a, #111); }
+.slash-fx { position: fixed; z-index: 70; pointer-events: none; overflow: hidden; border-radius: 45% 45% 18% 18%; }
+.slash-fx i { position: absolute; left: -15%; width: 130%; height: 7%; border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #fff 20%, #ff3030 55%, transparent);
+  box-shadow: 0 0 12px #ff2020, 0 0 26px #ff000099; transform-origin: left center;
+  animation: slashA var(--dur, 520ms) cubic-bezier(.2, .8, .3, 1) both; }
+.slash-fx i:nth-child(1) { top: 22%; animation-delay: 0ms; }
+.slash-fx i:nth-child(2) { top: 44%; animation-delay: 70ms; }
+.slash-fx i:nth-child(3) { top: 66%; animation-delay: 140ms; }
+@keyframes slashA {
+  0% { transform: rotate(32deg) scaleX(0); opacity: 1; }
+  45% { transform: rotate(32deg) scaleX(1); opacity: 1; }
+  100% { transform: rotate(32deg) scaleX(1); opacity: 0; }
+}
+.hero.slashed { animation: slashedFlash .5s ease-out; }
+@keyframes slashedFlash { 0% { filter: brightness(2.2) saturate(0); } 100% { filter: none; } }
+.float.f-fatigue { font-size: 32px; color: #ff4040; }
+
+/* ============================ ที่มาของบัฟ ============================ */
+.buff-src { margin-top: 8px; font-size: .8em; text-align: left; width: 100%; }
+.buff-src h4 { margin: 0 0 4px; color: #ffe08a; font-size: 1em; }
+.buff-src ul { margin: 0; padding-left: 16px; }
+.buff-src li { margin: 2px 0; line-height: 1.35; }
+.buff-src li b { color: #7dff8f; }
+.buff-src li.neg b { color: #ff8a8a; }
+.buff-src li span { color: var(--muted); }

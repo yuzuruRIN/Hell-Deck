@@ -75,8 +75,26 @@ function glossaryHTML(c, liveKw = []) {
   return '<ul class="kw-list">' + list.map(k => `<li><b>${k.icon} ${k.name}</b> — ${k.desc}</li>`).join('') + '</ul>';
 }
 
-/* ---------- ป๊อปอัปตอนชี้การ์ดค้างไว้: คำอธิบาย + การ์ดคู่หูคอมโบ ----------
-   ทุก element ที่มี data-cid ใช้ได้ / data-tip="card" = แสดงภาพการ์ดด้วย (เช่น ประวัติการเล่น) */
+/* ---------- ที่มาของบัฟ: มินเนี่ยนบนบอร์ดได้พลังมาจากไหน ---------- */
+function buffSrcHTML(m) {
+  const list = (m && m.buffs || []).filter(b => b.kw || b.a || b.h);
+  if (!list.length) return '';
+  const sg = v => (v > 0 ? `+${v}` : `${v}`);
+  const what = b => b.kw ? `${KEYWORDS[b.kw].icon} ได้ ${KEYWORDS[b.kw].name}`
+    : b.a && b.h ? `${sg(b.a)}/${sg(b.h)}` : b.a ? `${sg(b.a)} ⚔️` : `${sg(b.h)} ❤️`;
+  return `<div class="buff-src"><h4>📈 ที่มาของพลังที่เปลี่ยนไป</h4><ul>${list.map(b =>
+    `<li class="${(b.a < 0 || b.h < 0) ? 'neg' : ''}"><b>${what(b)}</b> <span>จาก ${b.src}</span></li>`).join('')}</ul></div>`;
+}
+/* ---------- การ์ดที่การ์ดใบนี้สับเข้าเด็ค / สร้างขึ้น ---------- */
+function relatedHTML(c) {
+  const r = relatedCards(c);
+  return (r.shuffle.length ? `<h4>🔀 การ์ดที่จะถูกสับเข้าเด็ค</h4><div class="tip-combos">${r.shuffle.map(id => cardHTML(CARDS[id])).join('')}</div>` : '')
+    + (r.make.length ? `<h4>✨ การ์ดที่จะถูกสร้างขึ้น</h4><div class="tip-combos">${r.make.map(id => cardHTML(CARDS[id])).join('')}</div>` : '');
+}
+
+/* ---------- ป๊อปอัปตอนชี้การ์ดค้างไว้: คำอธิบาย + การ์ดที่ถูกสับเข้าเด็ค / สร้างขึ้น + ที่มาของบัฟ ----------
+   ทุก element ที่มี data-cid ใช้ได้ / data-tip="card" = แสดงภาพการ์ดด้วย (เช่น ประวัติการเล่น)
+   ไม่บอกว่าการ์ดไหนคอมโบกับการ์ดไหน — ให้ผู้เล่นค้นพบเองจากข้อความบนการ์ด */
 const CardTip = {
   el: null, cur: null, timer: null,
   init() {
@@ -103,20 +121,20 @@ const CardTip = {
     if (!c) return;
     const withCard = t.dataset.tip === 'card';
     const inBattle = !!t.closest('#battle');
-    const partners = comboPartners(c.id), syn = synergyPartners(c.id);
-    // ในสนาม คำอธิบายแสดงอยู่ที่แถบซ้ายแล้ว ป๊อปอัปจึงแสดงเฉพาะคอมโบ
+    const rel = relatedHTML(c);
+    // ในสนาม คำอธิบายแสดงอยู่ที่แถบซ้ายแล้ว ป๊อปอัปจึงแสดงเฉพาะการ์ดที่เกี่ยวข้อง + ที่มาของบัฟ
     const gl = !inBattle || withCard ? glossaryHTML(c) : '';
-    if (!withCard && !partners.length && !syn.length && !gl) return;
+    const unitEl = inBattle && t.closest('#bArena .unit');
+    const buffs = unitEl && BattleUI.g ? buffSrcHTML(BattleUI.g.findEntity(+unitEl.dataset.uid)) : '';
+    if (!withCard && !rel && !gl && !buffs) return;
     this.el.innerHTML = `
       ${withCard ? `<div class="tip-main">${cardHTML(c)}</div>` : ''}
       <div class="tip-side">
+        ${buffs}
         ${gl ? `<h4>📘 ความสามารถ</h4>${gl}` : ''}
-        ${partners.length ? `<h4>💞 คอมโบกับการ์ดเหล่านี้</h4>
-          <div class="tip-combos">${partners.map(id => cardHTML(CARDS[id])).join('')}</div>` : ''}
-        ${syn.length ? `<h4>🔗 เล่นคู่กันแล้วเข้ากันดี</h4>
-          <div class="tip-combos syn">${syn.map(id => cardHTML(CARDS[id])).join('')}</div>` : ''}
+        ${rel}
       </div>`;
-    this.el.classList.toggle('narrow', !partners.length && !syn.length && !withCard);
+    this.el.classList.toggle('narrow', !rel && !withCard);
     this.el.classList.add('show');
     const r = t.getBoundingClientRect(), w = this.el.offsetWidth, h = this.el.offsetHeight;
     const vw = innerWidth, vh = innerHeight, gap = 14;
@@ -145,6 +163,7 @@ const BattleUI = {
       onShuffle: (o, id, n, src) => this.onShuffle(o, id, n, src),
       onRecruit: (o, m) => this.onRecruit(o, m),
       onSteal: m => this.onSteal(m),
+      onFatigue: (o, n) => this.onFatigue(o, n),
       banner: t => this.banner(t),
     };
     $('#app').innerHTML = `
@@ -158,7 +177,7 @@ const BattleUI = {
           <div class="b-relics" id="bRelics"></div>
           <div class="b-log-head">📜 ประวัติการเล่น <small>(ชี้รายการเพื่อดูการ์ด)</small></div>
           <div class="b-log" id="bLog"></div>
-          <div class="b-help">คลิก (หยิบ) หรือลากการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก • ชี้การ์ดค้างไว้เพื่อดูคอมโบ</div>
+          <div class="b-help">คลิก (หยิบ) หรือลากการ์ดเพื่อลง • คลิกมินเนี่ยนแล้วคลิกเป้าหมายเพื่อโจมตี • คลิกขวา/Esc ยกเลิก • ชี้มินเนี่ยนค้างไว้เพื่อดูว่าได้บัฟมาจากไหน</div>
           <div class="b-speed" id="bSpeed">ความเร็ว: ${Object.entries(SPEEDS).map(([k, v]) => `<button class="btn small ${k === SPEED ? 'primary' : ''}" data-speed="${k}">${v.label}</button>`).join('')}</div>
           <button class="btn small ghost" id="bConcede">🏳️ ยอมแพ้</button>
         </aside>
@@ -355,7 +374,7 @@ const BattleUI = {
       const t = g.findEntity(+entEl.dataset.uid);
       if (t && t.kind === 'minion') {
         const kws = Object.keys(t.kw).filter(k => t.kw[k]);
-        html = cardHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + glossaryHTML(t.card, kws);
+        html = cardHTML(t.card) + `<p class="note">ตอนนี้: ⚔️ ${t.atk} / ❤️ ${t.hp}/${t.maxHp}${t.frozen ? ' — ❄️ ถูกแช่แข็ง' : ''}${t.owner === 1 ? ' (ศัตรู)' : ''}</p>` + buffSrcHTML(t) + glossaryHTML(t.card, kws);
       } else if (t) {
         const p = g.P(t.owner);
         html = `<div class="hero-preview">${artHTML(p.portrait.folder, p.portrait.id, p.portrait.emoji)}<b>${p.name}</b>
@@ -900,6 +919,39 @@ const BattleUI = {
     const ov = $('#ePlay');
     if (ov && ov.querySelector('.enemy-play')) ov.innerHTML = '';
     Aim.stop();
+  },
+
+  /* ---------- จั่วตอนเด็คหมด: การ์ดหัวกะโหลกบินจากกองเด็คไปที่ฮีโร่ แล้วฟันเป็นรอยกรงเล็บ ----------
+     จั่วหลายครั้งติดกันจะทยอยเล่นทีละใบ */
+  onFatigue(o, n) {
+    if (!$('#bArena')) return;
+    const k = SPEEDS[SPEED].k, now = performance.now();
+    const start = Math.max(now + 150 * k, (this.fatigueAt || 0) + 1100 * k);
+    this.fatigueAt = start;
+    setTimeout(() => this.playFatigue(o, n), start - now);
+  },
+  async playFatigue(o, n) {
+    const g = this.g, k = SPEEDS[SPEED].k;
+    const pile = $(o === 0 ? '#pDeck .pile' : '#eDeck .pile'), hero = $(o === 0 ? '#pHeroRow .hero' : '#eHeroRow .hero');
+    if (!g || !pile || !hero) return;
+    const hr = hero.getBoundingClientRect(), dur = 760 * k;
+    const show = { left: hr.left + hr.width / 2 - 60, top: hr.top + hr.height / 2 - 90, width: 120, height: 180 };
+    flyBetween(cardHTML(CARDS.fatigue_card, { cls: 'fatigue-card' }), pile.getBoundingClientRect(), show,
+      { dur, faceDownStart: true, endScale: .75, lift: 70 });
+    await sleep(dur * .92);
+    if (this.g !== g) return;
+    const h2 = $(o === 0 ? '#pHeroRow .hero' : '#eHeroRow .hero');
+    if (!h2) return;
+    const r = h2.getBoundingClientRect();
+    const sl = document.createElement('div');
+    sl.className = 'slash-fx';
+    Object.assign(sl.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    sl.style.setProperty('--dur', `${520 * k}ms`);
+    sl.innerHTML = '<i></i><i></i><i></i>';
+    document.body.appendChild(sl);
+    setTimeout(() => sl.remove(), 900 * k);
+    h2.classList.remove('shake', 'slashed'); void h2.offsetWidth; h2.classList.add('shake', 'slashed');
+    this.floatText(r, `💀 -${n}`, 'f-dmg f-fatigue');
   },
 
   // การ์ดล้นมือ: แสดงการ์ดใบนั้นไหม้หายไปใกล้มือของเจ้าของ

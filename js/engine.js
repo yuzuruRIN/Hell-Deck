@@ -42,6 +42,7 @@ class Game {
     if (!m || !h || !h.bonus) return;
     m.atk += h.bonus.a || 0; m.hp += h.bonus.h || 0; m.maxHp += h.bonus.h || 0;
     m.bonus = { a: h.bonus.a || 0, h: h.bonus.h || 0 };
+    this.withSrc('บัฟที่ติดมากับการ์ดตอนถูกสับเข้าเด็ค', () => this.noteBuff(m, { a: m.bonus.a, h: m.bonus.h }));
   }
   P(o) { return this.players[o]; }
   opp(o) { return 1 - o; }
@@ -68,9 +69,29 @@ class Game {
     return null;
   }
   log(m, cid) { this.ui.log && this.ui.log(m, cid); }
-  fx(type, t, n) { this.ui.fx && this.ui.fx(type, t, n); }
+  fx(type, t, n) { if (!this.quietFx && this.ui.fx) this.ui.fx(type, t, n); }
   banner(t) { this.ui.banner && this.ui.banner(t); }
   combo(label) { this.log(`✨ คอมโบ: ${label}`); this.banner(label); }
+  /* ---------------- ที่มาของบัฟ ----------------
+     ทุกเอฟเฟคที่ทำงานจะถูกห่อด้วย withSrc(ชื่อที่มา) — บัฟ / keyword ที่เกิดระหว่างนั้น
+     จะถูกบันทึกไว้ใน m.buffs เพื่อแสดงตอนชี้มินเนี่ยนว่าได้พลังมาจากไหน */
+  withSrc(label, fn) {
+    (this.srcStack = this.srcStack || []).push(label);
+    try { return fn(); } finally { this.srcStack.pop(); }
+  }
+  curSrc() { const s = this.srcStack; return s && s.length ? s[s.length - 1] : 'เอฟเฟคอื่น'; }
+  noteBuff(m, rec) {
+    const list = m.buffs || (m.buffs = []);
+    const src = this.curSrc();
+    if (rec.kw) { if (!list.some(b => b.src === src && b.kw === rec.kw)) list.push({ src, kw: rec.kw }); return; }
+    const e = list.find(b => b.src === src && !b.kw);
+    if (e) { e.a += rec.a; e.h += rec.h; } else list.push({ src, a: rec.a, h: rec.h });
+  }
+  // keyword ที่ได้เพิ่มระหว่างเกม (ไม่ใช่ของติดการ์ด) ก็บันทึกที่มาไว้ด้วย
+  trackKw(m) {
+    const game = this;
+    m.kw = new Proxy(m.kw, { set(t, k, v) { if (v === true && !t[k] && KEYWORDS[k]) game.noteBuff(m, { kw: k }); t[k] = v; return true; } });
+  }
 
   /* ---------------- เริ่มเกม / เทิร์น ---------------- */
   start() {
@@ -105,14 +126,14 @@ class Game {
     p.spellDisc = 0;
     p.board.forEach(m => { m.sleeping = false; m.attacks = m.kw.windfury ? 2 : 1; });
     this.draw(o, 1);
-    p.board.slice().forEach(m => { if (this.alive(m) && m.card.onTurnStart) m.card.onTurnStart(this, o, m); });
+    p.board.slice().forEach(m => { if (this.alive(m) && m.card.onTurnStart) this.withSrc(`${m.name} (ต้นเทิร์น)`, () => m.card.onTurnStart(this, o, m)); });
     if (this.has(o, 'r_bullets')) { const t = this.randomEnemy(o); if (t) this.dmg(t, 1, null); }
     this.cleanup();
   }
 
   endTurn(o) {
     const p = this.P(o);
-    p.board.slice().forEach(m => { if (this.alive(m) && m.card.onTurnEnd) m.card.onTurnEnd(this, o, m); });
+    p.board.slice().forEach(m => { if (this.alive(m) && m.card.onTurnEnd) this.withSrc(`${m.name} (สิ้นเทิร์น)`, () => m.card.onTurnEnd(this, o, m)); });
     this.cleanup();
     p.board.forEach(m => { if (m.frozen && m.frozenTurn < this.turnCount) m.frozen = false; });
   }
@@ -123,8 +144,11 @@ class Game {
     for (let i = 0; i < n; i++) {
       if (!p.deck.length) {
         p.fatigue++;
-        this.log(`💀 ${p.name} การ์ดหมดเด็ค! โดน Fatigue ${p.fatigue} ดาเมจ`);
+        this.log(`💀 ${p.name} การ์ดหมดเด็ค! โดน Fatigue ${p.fatigue} ดาเมจ`, 'fatigue_card');
+        this.ui.onFatigue && this.ui.onFatigue(o, p.fatigue);
+        this.quietFx = true;   // ตัวเลขดาเมจแสดงโดยแอนิเมชันฟันที่ฮีโร่แทน
         this.dmg(p.hero, p.fatigue, null);
+        this.quietFx = false;
         continue;
       }
       const h = p.deck.shift();
@@ -132,7 +156,7 @@ class Game {
       if (h.card.castOnDraw) {
         this.log(`⚡ ${p.name} จั่วได้ ${h.card.name}!`, h.id);
         this.banner(`${h.card.emoji || '⚡'} ${h.card.name}!`);
-        h.card.onDraw(this, o, h);
+        this.withSrc(h.card.name, () => h.card.onDraw(this, o, h));
         this.draw(o, 1);
         continue;
       }
@@ -220,8 +244,9 @@ class Game {
     if (c.type === 'minion') {
       const m = this.summon(o, c.id, pos);
       this.applyBonus(m, h);
-      if (m && c.battlecry) c.battlecry(this, o, target, m);
+      if (m && c.battlecry) this.withSrc(`${c.name} (Battlecry)`, () => c.battlecry(this, o, target, m));
       if (m) this.reverseCombos(o, m);
+      if (m && typeof teamCheck === 'function') teamCheck(this, o);
       this.cleanup();
       if (m && !this.over && this.alive(m)) { this.fireTraps(this.opp(o), 'play_minion', { minion: m }); this.cleanup(); }
     } else if (c.type === 'spell') {
@@ -233,14 +258,14 @@ class Game {
       if (ev.cancel) {
         this.log(`🚫 ${c.name} ถูกยกเลิก!`, c.id);
       } else {
-        c.cast(this, o, target);
+        this.withSrc(`เวท ${c.name}`, () => c.cast(this, o, target));
         this.cleanup();
         if (this.has(o, 'r_echo') && !this.over) {
           let t2 = target;
           if (c.target && !this.alive(t2)) t2 = rnd(this.validTargets(o, c.target, c.targetFilter));
-          if (!c.target || t2) { this.log(`🎤 Echo! ${c.name} ร่ายซ้ำ`, c.id); c.cast(this, o, t2); this.cleanup(); }
+          if (!c.target || t2) { this.log(`🎤 Echo! ${c.name} ร่ายซ้ำ`, c.id); this.withSrc(`เวท ${c.name} (Echo)`, () => c.cast(this, o, t2)); this.cleanup(); }
         }
-        this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onSpell) m.card.onSpell(this, o, m); });
+        this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onSpell) this.withSrc(`${m.name} (เมื่อร่ายเวท)`, () => m.card.onSpell(this, o, m)); });
       }
     } else {
       p.traps.push(h);
@@ -254,11 +279,13 @@ class Game {
   reverseCombos(o, m) {
     const mine = COMBO_WITH[m.id] || [];
     for (const x of this.mins(o).slice()) {
-      if (x === m || x.comboUsed || !x.card.comboFx || !this.alive(x)) continue;
+      if (x === m || !this.alive(x)) continue;
       if (!(COMBO_WITH[x.id] || []).includes(m.id) || mine.includes(x.id)) continue;
-      x.comboUsed = true;
-      this.combo(x.card.comboLabel);
-      x.card.comboFx(this, o, x, m);
+      const def = comboDef(x.card, m.id);
+      if (!def || (x.combosDone && x.combosDone[m.id])) continue;
+      (x.combosDone = x.combosDone || {})[m.id] = true;
+      this.combo(def.label);
+      this.withSrc(def.label, () => def.fx(this, o, x, m));
     }
   }
 
@@ -295,7 +322,7 @@ class Game {
     const a = m.atk, d = t.kind === 'minion' ? t.atk : 0;
     this.dmg(t, a, m);
     if (t.kind === 'minion' && d > 0) this.dmg(m, d, t);
-    if (m.card.onAttack && this.alive(m)) m.card.onAttack(this, m.owner, m, t);
+    if (m.card.onAttack && this.alive(m)) this.withSrc(`${m.name} (เมื่อโจมตี)`, () => m.card.onAttack(this, m.owner, m, t));
     this.cleanup();
     return true;
   }
@@ -329,8 +356,10 @@ class Game {
   }
   buff(m, a, h) {
     if (!m) return;
+    const a0 = m.atk;
     m.atk = Math.max(0, m.atk + a);
     if (h) { m.maxHp += h; m.hp += h; }
+    if (m.atk !== a0 || h) this.noteBuff(m, { a: m.atk - a0, h: h || 0 });
     this.fx('buff', m, { a, h });
   }
   armor(o, n) { this.hero(o).armor += n; this.fx('armor', this.hero(o), n); }
@@ -392,7 +421,7 @@ class Game {
   }
   afterShuffle(o, by, n) {
     this.P(by).shuffled += n;
-    this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onShuffle) m.card.onShuffle(this, o, m, n); });
+    this.mins(o).slice().forEach(m => { if (this.alive(m) && m.card.onShuffle) this.withSrc(`${m.name} (เมื่อสับเข้าเด็ค)`, () => m.card.onShuffle(this, o, m, n)); });
   }
   // จั่วการ์ดเฉพาะเจาะจงจากเด็ค: เลือกใบที่ score สูงสุด
   drawBest(o, filter, score = () => 0) {
@@ -451,11 +480,14 @@ class Game {
       sleeping: true, attacks: 0, frozen: false,
     };
     c.kw.forEach(k => { m.kw[k] = true; });
+    this.trackKw(m);
     m.attacks = m.kw.windfury ? 2 : 1;
     if (pos == null || pos >= p.board.length) p.board.push(m);
     else p.board.splice(Math.max(0, pos), 0, m);
-    if (this.has(o, 'r_badge') && m.tags.includes('I.M.P.')) this.buff(m, 1, 1);
-    if (this.has(o, 'r_collar') && m.tags.includes('Hellhound')) { m.atk += 1; m.kw.rush = true; }
+    if (this.has(o, 'r_badge') && m.tags.includes('I.M.P.')) this.withSrc(`สมบัติ ${RELICS.r_badge.name}`, () => this.buff(m, 1, 1));
+    if (this.has(o, 'r_collar') && m.tags.includes('Hellhound')) this.withSrc(`สมบัติ ${RELICS.r_collar.name}`, () => { this.buff(m, 1, 0); m.kw.rush = true; });
+    // ความสามารถติดตัวของมินเนี่ยนอื่นฝ่ายเดียวกัน: "เมื่อมีมินเนี่ยน ... ลงสนาม"
+    p.board.slice().forEach(x => { if (x !== m && this.alive(x) && x.card.onFriendlySummon) this.withSrc(`${x.name} (เมื่อพวกเดียวกันลงสนาม)`, () => x.card.onFriendlySummon(this, o, x, m)); });
     return m;
   }
 
@@ -470,7 +502,7 @@ class Game {
       p.traps.splice(p.traps.indexOf(h), 1);
       this.log(`🪤 กับดัก "${h.card.name}" ของ ${p.name} ทำงาน!`, h.id);
       this.ui.onTrap && this.ui.onTrap(o, h.card);
-      tr.fire(this, o, ev);
+      this.withSrc(`กับดัก ${h.card.name}`, () => tr.fire(this, o, ev));
       if (ev.cancel) break;
     }
   }
@@ -490,8 +522,8 @@ class Game {
         this.log(`☠️ ${m.name} ตาย`, m.id);
       }
       for (const m of dead) {
-        if (m.card.deathrattle) m.card.deathrattle(this, m.owner, m);
-        this.mins(m.owner).slice().forEach(x => { if (this.alive(x) && x.card.onFriendlyDeath) x.card.onFriendlyDeath(this, m.owner, x, m); });
+        if (m.card.deathrattle) this.withSrc(`${m.name} (Deathrattle)`, () => m.card.deathrattle(this, m.owner, m));
+        this.mins(m.owner).slice().forEach(x => { if (this.alive(x) && x.card.onFriendlyDeath) this.withSrc(`${x.name} (เมื่อพวกเดียวกันตาย)`, () => x.card.onFriendlyDeath(this, m.owner, x, m)); });
         if (this.has(m.owner, 'r_pendant')) this.heal(this.hero(m.owner), 2);
         this.fireTraps(m.owner, 'death', { minion: m });
       }
@@ -511,7 +543,7 @@ class Game {
     const bh = this.hero(1);
     if (!this.halfDone && this.boss.onHalf && bh.hp <= bh.maxHp / 2) {
       this.halfDone = true;
-      this.boss.onHalf(this, 1);
+      this.withSrc(`${this.boss.name} เฟส 2`, () => this.boss.onHalf(this, 1));
       this.cleanup();
     }
   }
