@@ -24,6 +24,7 @@ const KEYWORDS = {
   poison:    { name: 'Poisonous',     icon: '☠️', desc: 'ทำลายมินเนี่ยนใดๆ ที่โดนดาเมจจากตัวนี้' },
   windfury:  { name: 'Windfury',      icon: '🌪️', desc: 'โจมตีได้ 2 ครั้งต่อเทิร์น' },
   freezer:   { name: 'Freeze',        icon: '❄️', desc: 'แช่แข็งตัวที่โดนดาเมจจากมินเนี่ยนนี้ (ข้ามการโจมตีครั้งถัดไป)' },
+  cleave:    { name: 'Cleave',        icon: '🪓', desc: 'ตอนโจมตีมินเนี่ยน มินเนี่ยนที่อยู่ข้างซ้ายและขวาของเป้าหมายก็โดนดาเมจเท่าพลังโจมตีด้วย' },
 };
 
 /* คำอธิบายความสามารถทั้งหมด — ใช้แสดงตอนชี้การ์ด และในหน้าวิธีเล่น
@@ -37,6 +38,7 @@ const GLOSSARY = [
   { name: 'Lifesteal',     icon: '🩸', desc: KEYWORDS.lifesteal.desc, test: (c, t) => kwOf('lifesteal')(c) || /Lifesteal/.test(t) },
   { name: 'Poisonous',     icon: '☠️', desc: KEYWORDS.poison.desc,    test: (c, t) => kwOf('poison')(c) || /Poisonous/.test(t) },
   { name: 'Windfury',      icon: '🌪️', desc: KEYWORDS.windfury.desc,  test: (c, t) => kwOf('windfury')(c) || /Windfury/.test(t) },
+  { name: 'Cleave',        icon: '🪓', desc: KEYWORDS.cleave.desc,    test: (c, t) => kwOf('cleave')(c) || /Cleave/.test(t) },
   { name: 'Freeze',        icon: '❄️', desc: 'แช่แข็งมินเนี่ยน: ตัวที่ถูกแช่แข็งจะโจมตีไม่ได้ในเทิร์นถัดไปของเจ้าของ แล้วละลายเองตอนจบเทิร์นนั้น',
     test: (c, t) => kwOf('freezer')(c) || /Freeze/.test(t) },
   { name: 'Battlecry',     icon: '📣', desc: 'ทำงานทันทีตอนลงการ์ดใบนี้จากมือ (ไม่ทำงานถ้ามินเนี่ยนถูกเรียกออกมาด้วยเอฟเฟคอื่นหรือถูกเรียกจากเด็ค)',
@@ -60,6 +62,8 @@ const GLOSSARY = [
   { name: 'ค่าร่าย',          icon: '💎', desc: 'มานาที่ต้องใช้ลงการ์ด — วงสีเขียว = ถูกลงกว่าปกติ, วงสีส้ม = แพงขึ้น, <b>ตัวเลขสีแดง</b> = ยังลงไม่ได้ (มานาไม่พอ / ไม่มีเป้าหมาย / บอร์ดเต็ม) ค่าที่ลดหรือเพิ่มในมือจะติดไปจนกว่าจะเล่นการ์ดใบนั้น',
     test: (c, t) => /ค่าร่าย|มานา/.test(t) },
   { name: 'ออร่า',           icon: '🔆', desc: 'มีผลตลอดเวลาที่มินเนี่ยนตัวนี้อยู่บนบอร์ด และหายไปเมื่อมันตาย', test: (c, t) => /ขณะอยู่บนบอร์ด/.test(t) },
+  { name: 'ปิดความสามารถ',   icon: '🔇', desc: 'ล้างบัฟทั้งหมด (ค่าพลังกลับเป็นตามการ์ด เสีย keyword ที่ได้เพิ่ม) และความสามารถบนการ์ดของมินเนี่ยนตัวนั้นไม่ทำงานอีก เช่น ออร่า เอฟเฟคทุกเทิร์น Deathrattle และคอมโบ',
+    test: (c, t) => /ปิดความสามารถ/.test(t) },
   { name: 'เกราะ',           icon: '🛡️', desc: 'ดาเมจที่ฮีโร่โดนจะหักจากเกราะก่อน แล้วค่อยหัก HP', test: (c, t) => /เกราะ/.test(t) },
   { name: 'คืนเข้ามือ',        icon: '↩️', desc: 'มินเนี่ยนกลับไปเป็นการ์ดในมือ ค่าสถานะที่ได้บัฟจะหายไป ลงใหม่แล้ว Battlecry / คอมโบทำงานอีกครั้ง',
     test: (c, t) => /เข้ามือ/.test(t) && /คืน/.test(t) },
@@ -196,19 +200,48 @@ M('blitzo', 'Blitzø', 5, 3, 3, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'I
     g.mins(o).forEach(m => { if (m !== s && hasTag(m, 'I.M.P.')) g.buff(m, 1, 1); });
     stolitz(g, o, s);
   } });
-M('moxxie', 'Moxxie', 3, 2, 4, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], emoji: '🎯', target: 'enemyMinion', ai: 'dmg', aiN: 2,
-  text: '<b>Battlecry:</b> ทำ 2 ดาเมจกับมินเนี่ยนศัตรู<br><i>คอมโบ Millie:</i> ทำ 4 ดาเมจแทน<br><i>คอมโบ Blitzø (หัวหน้า):</i> ยิงเพิ่ม 2 ดาเมจใส่ศัตรูแบบสุ่ม' + TEAM_TEXT,
-  combos: { blitzo: { label: '🔫 Moxxie รับคำสั่ง Blitzø!', fx: (g, o, s) => { const x = g.randomEnemy(o); if (x) g.dmg(x, 2, s); } } },
-  battlecry: (g, o, t, s) => {
-    const c = combo(g, o, s, 'millie', '💕 Moxxie + Millie', () => {});
+/* Moxxie / Millie / Blitzø: คอมโบติดได้ทุกลำดับ (ใบที่ลงทีหลังเป็นคนสั่งคอมโบ)
+   - Moxxie + Millie: Millie +2/+2, Lifesteal, Cleave / Moxxie ลงทีหลัง = สไนป์เป้า 4 ดาเมจ,
+     Moxxie อยู่ก่อน (Millie ลงทีหลัง) = Moxxie ยิง 2 ดาเมจกวาดมินเนี่ยนศัตรูทั้งบอร์ดแทน
+   - Moxxie + Blitzø: ยิง 1 ดาเมจกวาดมินเนี่ยนศัตรูทั้งบอร์ดอีกรอบ — คนยิงคือตัวที่อยู่บนบอร์ดก่อน */
+// ยิงกวาดมินเนี่ยนศัตรูทั้งบอร์ด: กระสุนพุ่งออกจากตัวคนยิงบนบอร์ด (BattleUI.onShots)
+function gunVolley(g, o, shooter, n) {
+  // ไม่มีมินเนี่ยนศัตรูเหลือบนบอร์ด → ยิงฮีโร่ศัตรูแทน
+  const ts = g.mins(g.opp(o)).filter(m => g.alive(m));
+  if (!ts.length) ts.push(g.hero(g.opp(o)));
+  if (g.ui.onShots) g.ui.onShots(shooter, ts);
+  ts.forEach(m => g.dmg(m, n, shooter));
+}
+function millieBuff(g, m) {
+  if (m.combosDone && m.combosDone.moxxie) return;
+  (m.combosDone = m.combosDone || {}).moxxie = true;
+  g.buff(m, 2, 2); m.kw.lifesteal = true; m.kw.cleave = true;
+}
+function moxMillie(g, o, s, t) {
+  const label = '💕 Moxxie + Millie';
+  if (s.id === 'moxxie') {
+    const c = combo(g, o, s, 'millie', label, p => millieBuff(g, p), true);
     if (t) g.dmg(t, c ? 4 : 2, s);
+  } else {
+    combo(g, o, s, 'moxxie', label, p => { millieBuff(g, s); gunVolley(g, o, p, 2); });
+  }
+}
+const moxBlitz = { label: '🔫 Moxxie + Blitzø ยิงกวาด!', fx: (g, o, s, p) => {
+  // s = Moxxie, p = Blitzø (ทั้งตอนลง Moxxie ทีหลัง และตอนลง Blitzø ทีหลัง) — ตัวที่อยู่บนบอร์ดก่อน (uid น้อยกว่า) เป็นคนยิง
+  gunVolley(g, o, s.uid < p.uid ? s : p, 1);
+} };
+M('moxxie', 'Moxxie', 3, 2, 4, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], emoji: '🎯', target: 'any', ai: 'dmg', aiN: 2,
+  text: '<b>Battlecry:</b> ยิง 2 ดาเมจ (เลือกเป้าได้ทุกตัว รวมถึงฮีโร่)<br><i>คอมโบ Millie:</i> ยิง 4 ดาเมจแทน และ Millie ได้ +2/+2, <b>Lifesteal</b>, <b>Cleave</b> (ถ้า Moxxie อยู่บนบอร์ดก่อน: Moxxie ยิง 2 ดาเมจใส่มินเนี่ยนศัตรูทุกตัว — ไม่มีมินเนี่ยนยิงฮีโร่แทน)<br><i>คอมโบ Blitzø (หัวหน้า):</i> ยิงกวาด 1 ดาเมจใส่มินเนี่ยนศัตรูทุกตัวอีกรอบ (ไม่มีมินเนี่ยนยิงฮีโร่แทน / ลงใบไหนก่อนก็ได้)' + TEAM_TEXT,
+  combos: { blitzo: moxBlitz },
+  battlecry: (g, o, t, s) => {
+    moxMillie(g, o, s, t);
     selfCombo(g, o, s);
   } });
 M('millie', 'Millie', 3, 3, 3, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Imp'], kw: ['rush'], emoji: '🪓',
-  text: '<b>Rush</b><br><i>คอมโบ Moxxie:</i> ได้ +2/+2 และ <b>Lifesteal</b><br><i>คอมโบ Blitzø (หัวหน้า):</i> ได้ +1/+0 และ <b>Windfury</b>' + TEAM_TEXT,
+  text: '<b>Rush</b><br><i>คอมโบ Moxxie:</i> ได้ +2/+2, <b>Lifesteal</b> และ <b>Cleave</b> (ถ้า Moxxie อยู่บนบอร์ดก่อน: Moxxie ยิง 2 ดาเมจใส่มินเนี่ยนศัตรูทุกตัว — ไม่มีมินเนี่ยนยิงฮีโร่แทน)<br><i>คอมโบ Blitzø (หัวหน้า):</i> ได้ +1/+0 และ <b>Windfury</b>' + TEAM_TEXT,
   combos: { blitzo: { label: '🪓 Millie ลุยตามหัวหน้า!', fx: (g, o, s) => { g.buff(s, 1, 0); giveWindfury(s); } } },
   battlecry: (g, o, t, s) => {
-    combo(g, o, s, 'moxxie', '💕 Millie + Moxxie', () => { g.buff(s, 2, 2); s.kw.lifesteal = true; });
+    moxMillie(g, o, s);
     selfCombo(g, o, s);
   } });
 M('loona', 'Loona', 3, 3, 2, { pool: 1, rar: 'legendary', tags: ['I.M.P.', 'Hellhound'], kw: ['rush'], emoji: '🐺',
@@ -244,12 +277,19 @@ M('stolas', 'Stolas', 6, 4, 7, { pool: 1, rar: 'legendary', tags: ['Goetia'], em
   // เวทที่ได้ลอยออกมาจากประตูมิติของ Stolas บนบอร์ด (แอนิเมชันใน BattleUI.onPortal)
   onTurnEnd: (g, o, m) => { const h = g.addHand(o, rnd(POOL_SPELLS)); if (h) g.ui.onPortal && g.ui.onPortal(o, m, h); } });
 M('octavia', 'Octavia', 2, 2, 3, { pool: 1, rar: 'legendary', tags: ['Goetia'], emoji: '🌙',
-  text: 'ทุกครั้งที่คุณร่ายเวทมนตร์ ได้ +1/+1<br><i>คอมโบ Stolas (พ่อลูก):</i> จั่ว 2 ใบ',
-  comboLabel: '🦉 Stolas + Octavia', comboFx: (g, o) => g.draw(o, 2),
+  text: 'ทุกครั้งที่คุณร่ายเวทมนตร์ ได้ +1/+1<br><i>คอมโบ Stolas (พ่อลูก):</i> เพิ่มเวทมนตร์สุ่ม 3 ใบเข้ามือ (จากเวททั้งหมดในเกม)',
+  comboLabel: '🦉 Stolas + Octavia', // เวท 3 ใบลอยออกจากประตูมิติของ Stolas (p = Stolas ทั้งตอนลง Octavia ทีหลังและลง Stolas ทีหลัง)
+  comboFx: (g, o, s, p) => {
+    const hs = [0, 1, 2].map(() => g.addHand(o, rnd(ALL_SPELLS))).filter(Boolean);
+    if (hs.length && p && g.ui.onPortal) g.ui.onPortal(o, p, hs);
+  },
   battlecry: (g, o, t, s) => selfCombo(g, o, s),
-  onSpell: (g, o, s) => g.buff(s, 1, 1) });
+  // พลังมืดสีดำม่วงวนรอบตัว (BattleUI.darkAura) แล้วค่อยบวกสเตตัส
+  onSpell: (g, o, s) => { g.fx('darkaura', s); g.buff(s, 1, 1); } });
 M('stella', 'Stella', 4, 4, 4, { pool: 1, rar: 'legendary', tags: ['Goetia'], emoji: '💅',
-  text: '<b>Battlecry:</b> ทำ 1 ดาเมจกับมินเนี่ยนอื่นทั้งหมด<br><i>คอมโบ Andrealphus (พี่ชาย):</i> <b>Freeze</b> มินเนี่ยนศัตรูทั้งหมด',
+  // มี Striker บนบอร์ด: ลง Stella แล้วเลือกเป้าที่จะจ้าง Striker ทำลาย (คอมโบอยู่ที่การ์ด Striker)
+  target: 'enemyMinion', targetIf: (g, o) => g.onBoard(o, 'striker'), ai: 'remove',
+  text: '<b>Battlecry:</b> ทำ 1 ดาเมจกับมินเนี่ยนอื่นทั้งหมด<br><i>คอมโบ Andrealphus (พี่ชาย):</i> <b>Freeze</b> มินเนี่ยนศัตรูทั้งหมด<br><i>คอมโบ Striker (จ้างวาน):</i> เลือกมินเนี่ยนศัตรู 1 ตัวให้ Striker <b>ทำลาย</b>',
   battlecry: (g, o, t, s) => {
     g.allMins().forEach(m => { if (m !== s) g.dmg(m, 1, s); });
     combo(g, o, s, 'andrealphus', '❄️ พี่น้อง Stella + Andrealphus', () => g.mins(g.opp(o)).forEach(m => g.freeze(m)));
@@ -268,9 +308,17 @@ M('paimon', 'Paimon', 8, 6, 6, { pool: 1, rar: 'legendary', tags: ['Goetia'], em
   } });
 
 // ---- ศัตรู / บอส ในรูปมินเนี่ยน ----
+/* Striker + Stella: Stella จ้างให้ฆ่า "คนที่ระบุ" → ผู้เล่นเลือกมินเนี่ยนศัตรูที่จะทำลายเอง ลงใบไหนก่อนก็ได้
+   (ใบที่ลงทีหลังจะให้เลือกเป้า: targetIf เปิดการเลือกเป้าเฉพาะตอนอีกใบอยู่บนบอร์ด / บอสเลือกตัวที่แรงสุด) */
+function strikerContract(g, o) {
+  const t = g.playTarget;
+  const x = t && t.kind === 'minion' && t.owner !== o && g.alive(t) ? t : [...g.mins(g.opp(o))].filter(m => g.alive(m)).sort((a, b) => b.atk * 2 + b.hp - (a.atk * 2 + a.hp))[0];
+  if (x) g.destroy(x);
+}
 M('striker', 'Striker', 3, 3, 3, { pool: 1, rar: 'legendary', tags: ['Imp'], kw: ['rush'], emoji: '🤠',
-  text: '<b>Rush</b><br><i>คอมโบ Stella (ผู้จ้าง):</i> ทำลายมินเนี่ยนศัตรูแบบสุ่ม 1 ตัว',
-  comboLabel: '🎯 สัญญาจ้างของ Stella', comboFx: (g, o) => { const x = rnd(g.mins(g.opp(o))); if (x) g.destroy(x); },
+  target: 'enemyMinion', targetIf: (g, o) => g.onBoard(o, 'stella'), ai: 'remove',
+  text: '<b>Rush</b><br><i>คอมโบ Stella (ผู้จ้าง):</i> เลือกมินเนี่ยนศัตรู 1 ตัวแล้ว<b>ทำลาย</b>ทันที (ลงใบไหนก่อนก็ได้)',
+  comboLabel: '🎯 สัญญาจ้างของ Stella', comboFx: (g, o) => strikerContract(g, o),
   battlecry: (g, o, t, s) => selfCombo(g, o, s) });
 M('crimson', 'Crimson', 6, 5, 5, { pool: 1, rar: 'legendary', tags: ['Imp'], emoji: '🎩',
   text: '<b>Battlecry:</b> เรียก Crimson Thug 2/2 สองตัว<br><i>คอมโบ Moxxie (ลูกชาย):</i> Moxxie ได้ +3/+3',
@@ -465,7 +513,29 @@ S('cursed_paperwork', 'Cursed Paperwork', 2, { pool: 1, tags: ['I.M.P.'], emoji:
   cast: (g, o) => g.shuffleIn(g.opp(o), 'cursed_contract', 3, { by: o }) });
 S('time_loop', 'Time Loop', 3, { pool: 1, rar: 'rare', tags: ['Goetia'], emoji: '⏳',
   text: 'สับสำเนาการ์ด 3 ใบล่าสุดที่คุณเล่นในเกมนี้เข้าเด็คของคุณ สำเนาลดค่าร่าย 1',
-  cast: (g, o) => g.P(o).played.filter(id => id !== 'time_loop').slice(-3).forEach(id => g.shuffleIn(o, id, 1, { costDelta: -1 })) });
+  cast: (g, o) => timeLoopIds(g, o).forEach(id => g.shuffleIn(o, id, 1, { costDelta: -1 })),
+  // ชี้การ์ดในมือ: บอกว่าตอนนี้ร่ายแล้วจะได้สำเนาใบไหน (BattleUI / CardTip)
+  preview: (g, o) => ({ title: '🔁 ร่ายตอนนี้จะสับสำเนาใบเหล่านี้เข้าเด็ค (ค่าร่าย -1)', ids: timeLoopIds(g, o), costDelta: -1,
+    empty: 'ยังไม่ได้เล่นการ์ดใบไหนในเกมนี้ — ร่ายตอนนี้จะไม่ได้อะไร' }) });
+function timeLoopIds(g, o) { return g.P(o).played.filter(id => id !== 'time_loop').slice(-3); }
+/* การ์ดแก้ทาง (18 พ.ย.): ไว้รับมือบอสสายบัฟ (Verosika / Paimon / Asmodeus) และบอสสายกับดัก */
+S('bad_review', 'Bad Review', 2, { pool: 1, emoji: '📰', target: 'enemyMinion', ai: 'remove',
+  // เป้าที่ใช้ได้: มินเนี่ยนศัตรูที่ได้รับบัฟ หรือมีความสามารถบนการ์ด
+  targetFilter: (g, t) => t.atk !== t.card.atk || t.maxHp !== t.card.hp || Object.keys(t.kw).some(k => t.kw[k] && !t.card.kw.includes(k))
+    || Object.keys(t.card).some(k => isAbilityKey(k) && t.card[k]),
+  text: 'ล้างบัฟและ<b>ปิดความสามารถ</b>ของมินเนี่ยนศัตรู: ค่าพลังกลับเป็นตามการ์ด เสีย keyword ที่ได้เพิ่มมา และความสามารถบนการ์ด (ออร่า / ทุกเทิร์น / Deathrattle ฯลฯ) ไม่ทำงานอีก',
+  cast: (g, o, t) => g.cleanse(t) });
+S('sniff_out', 'Sniff Out', 1, { pool: 1, tags: ['Hellhound'], emoji: '👃', aiCond: (g, o) => g.P(g.opp(o)).traps.length > 0,
+  text: 'ทำลายกับดักของศัตรูแบบสุ่ม 1 ใบ จั่วการ์ด 1 ใบ',
+  cast: (g, o) => {
+    const p = g.P(g.opp(o));
+    if (p.traps.length) {
+      const h = p.traps.splice(Math.floor(Math.random() * p.traps.length), 1)[0];
+      g.note(`👃 ดมเจอกับดัก <b>${h.card.name}</b> แล้วทำลายทิ้ง`);
+      g.banner(`👃 ทำลายกับดัก ${h.card.name}!`);
+    } else g.note('👃 ศัตรูไม่มีกับดัก');
+    g.draw(o, 1);
+  } });
 S('rally_horn', 'Rally Horn', 4, { pool: 1, rar: 'rare', emoji: '📯', aiCond: canRecruit,
   text: 'เรียกมินเนี่ยน 2 ตัวออกจากเด็คของคุณ ทั้งคู่ได้ +1/+1 และ <b>Rush</b>',
   cast: (g, o) => [g.recruit(o), g.recruit(o)].forEach(m => { if (m) { g.buff(m, 1, 1); m.kw.rush = true; } }) });
@@ -501,7 +571,8 @@ S('contract_hit', 'Contract Hit', 2, { pool: 1, tags: ['I.M.P.'], emoji: '📜',
   cast: (g, o, t) => { g.destroy(t); if (g.countTag(o, 'I.M.P.')) g.draw(o, 1); } });
 S('execution', 'Execution', 5, { pool: 1, rar: 'rare', emoji: '⚰️', target: 'enemyMinion', ai: 'remove', text: 'ทำลายมินเนี่ยนศัตรู 1 ตัว',
   cast: (g, o, t) => g.destroy(t) });
-S('bullet_storm', 'Bullet Storm', 3, { pool: 1, tags: ['I.M.P.'], emoji: '💥', text: 'ทำ 1 ดาเมจกับศัตรูแบบสุ่ม 5 ครั้ง',
+S('bullet_storm', 'Bullet Storm', 3, { pool: 1, tags: ['I.M.P.'], sdText: 'count',   // พลังเวทเพิ่มจำนวนครั้ง ไม่ใช่ดาเมจต่อนัด
+  emoji: '💥', text: 'ทำ 1 ดาเมจกับศัตรูแบบสุ่ม 5 ครั้ง',
   cast: (g, o) => { const n = g.sd(o, 5); for (let i = 0; i < n; i++) { const t = g.randomEnemy(o); if (t) g.spellDmg(o, t, 1, true); } } });
 S('frozen_wastes', 'Frozen Wastes', 5, { pool: 1, rar: 'rare', tags: ['Goetia'], emoji: '🌨️', aiCond: enemyHasMinions,
   text: 'ทำ 1 ดาเมจและ <b>Freeze</b> มินเนี่ยนศัตรูทั้งหมด',
@@ -594,20 +665,24 @@ M('v_groupie', 'Succubus Groupie', 2, 2, 2, { boss: 'verosika', emoji: '💋',
   battlecry: (g, o, t, s) => { g.heal(g.hero(o), 3); selfCombo(g, o, s); } });
 M('v_fan', 'Obsessed Fan', 1, 1, 2, { boss: 'verosika', emoji: '😍', text: '<b>Deathrattle:</b> สับ Obsessed Fan 1 ใบเข้าเด็คของคุณ',
   deathrattle: (g, o, m) => g.shuffleIn(o, 'v_fan', 1, { src: m.uid }) });
-M('v_manager', 'Tour Manager', 3, 2, 3, { boss: 'verosika', emoji: '📋', text: '<b>Battlecry:</b> สับ Encore! 1 ใบเข้าเด็คของคุณ แล้วจั่วการ์ด 1 ใบ',
-  battlecry: (g, o) => { g.shuffleIn(o, 'v_encore', 1); g.draw(o, 1); } });
+// บาลานซ์ (18 พ.ย.): เดิมสับ Encore! เพิ่มเข้าเด็ค ทำให้บัฟทบต้นเร็วเกินไปสำหรับบอสที่ 2
+M('v_manager', 'Tour Manager', 3, 2, 3, { boss: 'verosika', emoji: '📋', text: '<b>Battlecry:</b> ฟื้นฟู 2 HP ให้ฮีโร่ของคุณ แล้วจั่วการ์ด 1 ใบ',
+  battlecry: (g, o) => { g.heal(g.hero(o), 2); g.draw(o, 1); } });
 S('v_tour', 'World Tour', 3, { boss: 'verosika', emoji: '🌍', aiCond: canRecruit, text: 'เรียกมินเนี่ยน 2 ตัวออกจากเด็คของคุณ',
   cast: (g, o) => { g.recruit(o); g.recruit(o); } });
 M('v_bouncer', 'Stage Bouncer', 3, 2, 4, { boss: 'verosika', kw: ['taunt'], text: '<b>Taunt</b>' });
 S('v_encore', 'Encore!', 2, { boss: 'verosika', emoji: '🎶', aiCond: minionsAtLeast(2), text: 'มินเนี่ยนฝ่ายเราทั้งหมด +1/+1',
   cast: (g, o) => g.mins(o).forEach(m => g.buff(m, 1, 1)) });
-S('v_charm', 'Charm Song', 4, { boss: 'verosika', emoji: '💘', target: 'enemyMinion', targetFilter: (g, t) => t.atk <= 2, ai: 'steal',
+S('v_charm', 'Charm Song', 5, {   // บาลานซ์: 4 → 5 มานา (มาช้าลง 1 เทิร์น)
+ boss: 'verosika', emoji: '💘', target: 'enemyMinion', targetFilter: (g, t) => t.atk <= 2, ai: 'steal',
   text: 'ควบคุมมินเนี่ยนศัตรูที่มีพลังโจมตี 2 หรือน้อยกว่า',
   cast: (g, o, t) => g.steal(o, t) });
-M('v_verosika', 'Verosika Mayday', 5, 3, 5, { boss: 'verosika', emoji: '💖', text: 'สิ้นเทิร์นของคุณ: มินเนี่ยนอื่นฝ่ายเรา +1/+1',
-  onTurnEnd: (g, o, s) => g.mins(o).forEach(m => { if (m !== s) g.buff(m, 1, 1); }) });
-T('v_heartbreak', 'Heartbreak', 2, { boss: 'verosika', text: '<b>กับดัก:</b> เมื่อมินเนี่ยนศัตรูโจมตี ยกเลิกการโจมตี และมันเสีย 2 พลังโจมตี',
-  trap: { on: 'attack', fire: (g, o, ev) => { ev.cancel = true; g.buff(ev.attacker, -2, 0); } } });
+// บาลานซ์: เดิมบัฟมินเนี่ยนอื่น "ทุกตัว" ทุกเทิร์น → สุ่ม 1 ตัว (เหมือน Verosika ฝั่งผู้เล่น)
+M('v_verosika', 'Verosika Mayday', 5, 3, 5, { boss: 'verosika', emoji: '💖', text: 'สิ้นเทิร์นของคุณ: ให้มินเนี่ยนอื่นฝ่ายเราแบบสุ่ม +1/+1',
+  onTurnEnd: (g, o, s) => { const t = rnd(g.mins(o).filter(m => m !== s)); if (t) g.buff(t, 1, 1); } });
+// บาลานซ์: เดิม -2 พลังโจมตีถาวร (มินเนี่ยนตัวเล็กต้นเกมกลายเป็น 0) → แช่แข็งแทน
+T('v_heartbreak', 'Heartbreak', 2, { boss: 'verosika', text: '<b>กับดัก:</b> เมื่อมินเนี่ยนศัตรูโจมตี ยกเลิกการโจมตี และ <b>Freeze</b> มัน',
+  trap: { on: 'attack', fire: (g, o, ev) => { ev.cancel = true; g.freeze(ev.attacker); } } });
 
 // 3. Crimson
 M('c_thug', 'Crimson Thug', 2, 2, 2, { boss: 'crimson', tags: ['Imp'] });
@@ -622,11 +697,13 @@ M('c_gunman', 'Gang Gunman', 3, 3, 2, { boss: 'crimson', tags: ['Imp'], emoji: '
 M('c_lieutenant', 'Gang Lieutenant', 4, 3, 4, { boss: 'crimson', tags: ['Imp'], emoji: '🕶️',
   text: '<b>Battlecry:</b> เรียก Crimson Thug 1 ตัวออกจากเด็คของคุณ',
   battlecry: (g, o) => g.recruit(o, c => c.id === 'c_thug') });
-S('c_recruit', 'Gang Recruitment', 2, { boss: 'crimson', emoji: '📝', text: 'สับ Crimson Thug 3 ใบเข้าเด็คของคุณ แล้วจั่วการ์ด 1 ใบ',
-  cast: (g, o) => { g.shuffleIn(o, 'c_thug', 3); g.draw(o, 1); } });
+// บาลานซ์ (18 พ.ย.): สับ Thug 3 → 2 ใบ
+S('c_recruit', 'Gang Recruitment', 2, { boss: 'crimson', emoji: '📝', text: 'สับ Crimson Thug 2 ใบเข้าเด็คของคุณ แล้วจั่วการ์ด 1 ใบ',
+  cast: (g, o) => { g.shuffleIn(o, 'c_thug', 2); g.draw(o, 1); } });
 S('c_backup', 'Call for Backup', 4, { boss: 'crimson', emoji: '🚨', aiCond: canRecruit, text: 'เรียกมินเนี่ยน 2 ตัวออกจากเด็คของคุณ',
   cast: (g, o) => { g.recruit(o); g.recruit(o); } });
-M('c_bodyguard', 'Crimson Bodyguard', 4, 3, 6, { boss: 'crimson', kw: ['taunt'], text: '<b>Taunt</b>' });
+// บาลานซ์: 3/6 → 2/5 (กำแพง Taunt หนาเกินสำหรับมินเนี่ยนตัวเล็กของผู้เล่นช่วงต้นเกม)
+M('c_bodyguard', 'Crimson Bodyguard', 4, 2, 5, { boss: 'crimson', kw: ['taunt'], text: '<b>Taunt</b>' });
 S('c_call_gang', 'Call the Gang', 3, { boss: 'crimson', emoji: '📞', text: 'เรียก Gang Rat 1/1 3 ตัว',
   cast: (g, o) => { for (let i = 0; i < 3; i++) g.summon(o, 'c_rat'); } });
 S('c_molotov', 'Molotov', 3, { boss: 'crimson', emoji: '🍾', aiCond: enemyHasMinions, text: 'ทำ 2 ดาเมจกับมินเนี่ยนศัตรูทั้งหมด',
@@ -871,7 +948,9 @@ function comboReady(g, o, c) {
 /* ------------------------------ รายการรวม ------------------------------ */
 const POOL = Object.values(CARDS).filter(c => c.pool).map(c => c.id);
 const POOL_SPELLS = POOL.filter(id => CARDS[id].type === 'spell' && CARDS[id].ai !== 'skip');
-const POOL_TRAPS = POOL.filter(id => CARDS[id].type === 'trap');
+// เวททั้งหมดในเกม (รวมเวทของฮีโร่และบอส ยกเว้นการ์ดโทเคน) — ใช้กับคอมโบ Octavia + Stolas
+const ALL_SPELLS = Object.values(CARDS).filter(c => c.type === 'spell' && !c.token && c.ai !== 'skip').map(c => c.id);
+const POOL_TRAPS =POOL.filter(id => CARDS[id].type === 'trap');
 const POOL_LEGENDS = POOL.filter(id => CARDS[id].rar === 'legendary' && CARDS[id].type === 'minion');
 // โอกาสสุ่มเจอการ์ดแต่ละระดับ (ตำนานเจอยากกว่า)
 const CARD_RARITY_WEIGHT = { common: 5, rare: 3, legendary: 2 };
@@ -891,16 +970,19 @@ function sampleCards(n, ids = POOL) {
 const HEROES = {
   blitzo: { id: 'blitzo', name: 'Blitzø', title: 'บอสแห่ง I.M.P.', emoji: '🔫',
     desc: 'สายบุก — Charge, ยิงกระจาย และบัฟทีม I.M.P.',
-    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'hellfire_bolt', 'imp_phone', 'brimstone_shot', 'blitzo', 'bullet_storm', 'office_meeting'],
-    tips: ['Blitzø มี <b>Charge</b> ลงแล้วตีหน้าบอสได้ทันที', 'Office Meeting บัฟมินเนี่ยน I.M.P. ทั้งกระดาน +2/+2', 'ตัวละครหลักหลายตัวเก่งขึ้นเมื่ออยู่ร่วมกับคนที่สนิทกันในเรื่อง — ลองชี้การ์ดค้างไว้เพื่อดูคอมโบ'] },
+    // บาลานซ์ (18 พ.ย.): Imp Grunt ×2 → Imp Recruiter + Imp Van (สายรวมทีม I.M.P. เต็มบอร์ด)
+    deck: ['imp_recruiter', 'imp_van', 'imp_bouncer', 'imp_brute', 'hellfire_bolt', 'imp_phone', 'brimstone_shot', 'blitzo', 'bullet_storm', 'office_meeting'],
+    tips: ['Blitzø มี <b>Charge</b> ลงแล้วตีหน้าบอสได้ทันที', 'Imp Recruiter กับ Imp Van เติมลูกน้องให้บอร์ดเต็ม แล้วใช้ Office Meeting บัฟทั้งกระดาน (I.M.P. ได้ +2/+2)', 'ตัวละครหลักหลายตัวเก่งขึ้นเมื่ออยู่ร่วมกับคนที่สนิทกันในเรื่อง — ลองชี้การ์ดค้างไว้เพื่อดูคอมโบ'] },
   moxxie: { id: 'moxxie', name: 'Moxxie', title: 'มือปืนนักวางแผน', emoji: '🎯',
     desc: 'สายควบคุม — กับดัก, ยิงมินเนี่ยนศัตรู และตั้งรับ',
-    deck: ['imp_bouncer', 'imp_bouncer', 'imp_brute', 'imp_hitman', 'hellfire_bolt', 'brimstone_shot', 'first_aid', 'moxxie', 'ambush', 'decoy'],
-    tips: ['วางกับดัก Ambush / Decoy Imp ไว้ก่อนจบเทิร์นเพื่อตั้งรับ', 'ใช้ Brimstone Shot, Imp Hitman และ Moxxie เก็บมินเนี่ยนศัตรูทีละตัว', 'ประคองมินเนี่ยนตัวหนาด้วย Hellmart First Aid แล้วค่อยๆ ได้เปรียบ'] },
+    // บาลานซ์ (18 พ.ย.): Hellmart First Aid → Contract Hit, Decoy Imp → Imp Recruiter (เพิ่มการ์ดกำจัดเป้าหมาย + ตัวบนบอร์ด)
+    deck: ['imp_bouncer', 'imp_bouncer', 'imp_brute', 'imp_hitman', 'hellfire_bolt', 'brimstone_shot', 'contract_hit', 'moxxie', 'ambush', 'imp_recruiter'],
+    tips: ['วางกับดัก Ambush ไว้ก่อนจบเทิร์นเพื่อตั้งรับ', 'ใช้ Brimstone Shot, Imp Hitman, Moxxie และ Contract Hit เก็บมินเนี่ยนศัตรูทีละตัว', 'มีมินเนี่ยน I.M.P. บนบอร์ด Contract Hit จะจั่วการ์ดคืนให้ด้วย — ลง Imp Recruiter ก่อนแล้วค่อยใช้'] },
   millie: { id: 'millie', name: 'Millie', title: 'นักสู้สายลุย', emoji: '🪓',
     desc: 'สายบัฟ — Rush, บัฟมินเนี่ยนให้ใหญ่แล้วบดขยี้',
-    deck: ['imp_grunt', 'imp_grunt', 'imp_bouncer', 'imp_brute', 'imp_brute', 'hellfire_bolt', 'millie', 'sallie_may', 'sinful_strength', 'sinful_strength'],
-    tips: ['Sinful Strength บัฟมินเนี่ยน <b>Rush</b> แล้วลุยได้ทันที', 'เด็คนี้ปิดเกมเร็ว — กดดันหน้าบอสก่อนที่บอสจะตั้งตัวได้', 'ตัวละครในครอบครัวและที่ทำงานของ Millie มีคอมโบซ่อนอยู่ ลองหาดู'] },
+    // บาลานซ์ (18 พ.ย.): Imp Grunt ×2 → Imp Van + Sallie May ใบที่ 2, Hellfire Bolt → Revenge Contract
+    deck: ['imp_van', 'sallie_may', 'imp_bouncer', 'imp_brute', 'imp_brute', 'revenge_contract', 'millie', 'sallie_may', 'sinful_strength', 'sinful_strength'],
+    tips: ['Sinful Strength / Revenge Contract บัฟมินเนี่ยน <b>Rush</b> แล้วลุยได้ทันที', 'Millie กับ Sallie May (พี่น้อง) ลงคู่กันได้ +2/+1 ทั้งคู่ — มี Sallie May 2 ใบ ติดคอมโบง่าย', 'เด็คนี้ปิดเกมเร็ว — กดดันหน้าบอสก่อนที่บอสจะตั้งตัวได้', 'ตัวละครในครอบครัวและที่ทำงานของ Millie มีคอมโบซ่อนอยู่ ลองหาดู'] },
   loona: { id: 'loona', name: 'Loona', title: 'Hellhound ขี้หงุดหงิด', emoji: '🐺',
     desc: 'สายฝูง — เรียก Hellhound จำนวนมาก โตขึ้นเมื่อเพื่อนตาย',
     deck: ['hellhound_pup', 'hellhound_pup', 'fierce_hound', 'imp_bouncer', 'pack_howl', 'thick_fur', 'pack_alpha', 'brimstone_shot', 'hellmart_snack', 'loona'],
@@ -913,11 +995,13 @@ const BOSSES = [
   { id: 'striker', name: 'Striker', title: 'นักฆ่ารับจ้าง', hp: 10, emoji: '🤠', desc: 'ลอบโจมตี แช่แข็งด้วยเชือก และซุ่มยิง',
     deck: [['s_hired_gun', 4], ['s_steed', 3], ['s_striker', 2], ['s_sniper', 2], ['s_lasso', 2], ['s_ambush', 1],
       ['s_drifter', 3], ['s_reload', 2], ['s_saddle', 2]] },
-  { id: 'verosika', name: 'Verosika Mayday', title: 'ป๊อปสตาร์ซัคคิวบัส', hp: 20, emoji: '💖', desc: 'บัฟทีมทุกเทิร์น และใช้เพลงยั่วยวนขโมยมินเนี่ยน',
-    deck: [['v_backup', 4], ['v_groupie', 3], ['v_bouncer', 2], ['v_encore', 2], ['v_charm', 2], ['v_verosika', 1], ['v_heartbreak', 2],
+  // บาลานซ์ (18 พ.ย.): HP 20 → 18, Encore! 2 → 1 ใบ (จำลองแล้วอัตราชนะจาก ~26–48% เป็น ~46–60%)
+  { id: 'verosika', name: 'Verosika Mayday', title: 'ป๊อปสตาร์ซัคคิวบัส', hp: 18, emoji: '💖', desc: 'บัฟทีมทุกเทิร์น และใช้เพลงยั่วยวนขโมยมินเนี่ยน',
+    deck: [['v_backup', 4], ['v_groupie', 3], ['v_bouncer', 2], ['v_encore', 1], ['v_charm', 2], ['v_verosika', 1], ['v_heartbreak', 2],
       ['v_fan', 3], ['v_manager', 2], ['v_tour', 2]] },
-  { id: 'crimson', name: 'Crimson', title: 'เจ้าพ่อแก๊งค์', hp: 30, emoji: '🎩', desc: 'ลูกน้องเต็มบอร์ด ยิงสุ่ม และระเบิดเพลิง',
-    deck: [['c_thug', 4], ['c_gunman', 3], ['c_bodyguard', 2], ['c_call_gang', 2], ['c_molotov', 2], ['c_knife', 2], ['c_crimson', 1],
+  // บาลานซ์ (18 พ.ย.): HP 30 → 25, Gunman 3 → 2, Bodyguard 2 → 1 ใบ (จำลอง: อัตราชนะ ~18–34% → ~30–52%)
+  { id: 'crimson', name: 'Crimson', title: 'เจ้าพ่อแก๊งค์', hp: 25, emoji: '🎩', desc: 'ลูกน้องเต็มบอร์ด ยิงสุ่ม และระเบิดเพลิง',
+    deck: [['c_thug', 4], ['c_gunman', 2], ['c_bodyguard', 1], ['c_call_gang', 2], ['c_molotov', 2], ['c_knife', 2], ['c_crimson', 1],
       ['c_lieutenant', 2], ['c_recruit', 2], ['c_backup', 2],
       // เพิ่มตามระดับบอส (การ์ดทั่วไปที่เข้าธีม): มือปืน + ยิงสุ่ม
       ['imp_hitman', 1], ['bullet_storm', 1], ['wally', 1]] },
@@ -972,6 +1056,8 @@ const RELICS = {
   r_goldcard: { id: 'r_goldcard', name: "Mammon's Golden Card", rarity: 'legendary', emoji: '💳', text: 'การ์ดทุกใบลดค่าร่าย 2' },
   r_echo:     { id: 'r_echo',     name: "Asmodeus's Echo",      rarity: 'legendary', emoji: '🎤', text: 'เวทมนตร์ร่าย 2 ครั้ง' },
   r_crystal:  { id: 'r_crystal',  name: 'Infernal Crystal',     rarity: 'legendary', emoji: '💎', text: 'เริ่มการต่อสู้ด้วยมานาสูงสุด +3' },
+  r_battlecry: { id: 'r_battlecry', name: 'Hellish Megaphone', rarity: 'rare',     emoji: '📣', text: 'Battlecry ของมินเนี่ยนฝ่ายเราทำงาน 2 ครั้ง' },
+  r_deathrattle: { id: 'r_deathrattle', name: 'Grave Bell',   rarity: 'rare',     emoji: '🔔', text: 'Deathrattle ของมินเนี่ยนฝ่ายเราทำงาน 2 ครั้ง' },
   r_crown:    { id: 'r_crown',    name: "Paimon's Crown",       rarity: 'legendary', emoji: '👑', text: 'เริ่มการต่อสู้พร้อม Royal Guard 3/3 Taunt 2 ตัว' },
 };
 const RARITY_WEIGHT = { common: 60, rare: 30, legendary: 10 };
@@ -996,5 +1082,6 @@ const SHOP_ITEMS = [
   { id: 'copy3',   name: 'ก็อปปี้การ์ด x3',    emoji: '📑', price: 2, desc: 'เลือกการ์ดในเด็คสูงสุด 3 ใบ เพื่อเพิ่มสำเนา' },
   { id: 'pick',    name: 'แพ็คการ์ด',          emoji: '🃏', price: 1, desc: 'สุ่มการ์ด 10 ใบ แล้วเลือก 1 ใบ' },
   { id: 'legend',  name: 'การ์ดตำนาน',        emoji: '🌟', price: 2, desc: 'สุ่มตัวละครระดับตำนาน 3 ใบ แล้วเลือก 1 ใบ' },
+  { id: 'anycard', name: 'สั่งทำพิเศษ',        emoji: '📜', price: 3, desc: 'เลือกการ์ดใบไหนก็ได้ในเกม 1 ใบ' },
   { id: 'relic',   name: 'สมบัติสุ่ม',          emoji: '🎁', price: 3, desc: 'ได้รับสมบัติสุ่ม 1 ชิ้น' },
 ];

@@ -3,3 +3,6 @@
 
 # local tooling
 /.claude/
+
+# pixelfx checkout used only to rebuild js/vendor/pixelfx.js (see tools/pixelfx/bundle.mjs)
+/tools/pixelfx_src/

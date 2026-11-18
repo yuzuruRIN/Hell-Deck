@@ -9,7 +9,7 @@ function aiPickTarget(g, o, h) {
   const c = h.card;
   const isSpell = c.type === 'spell';
   const none = isSpell ? false : null; // เวทที่ไม่มีเป้าที่ดี = ไม่ใช้ / มินเนี่ยน = ลงโดยไม่มีเป้า
-  if (!c.target) return null;
+  if (!c.target || (c.targetIf && !c.targetIf(g, o))) return null;   // targetIf = ต้องเลือกเป้าเฉพาะบางสถานการณ์
   const valid = g.validTargets(o, c.target, c.targetFilter);
   if (!valid.length) return none;
   const e = g.opp(o);
@@ -35,6 +35,17 @@ function aiPickTarget(g, o, h) {
     default:
       return none;
   }
+}
+
+// บอสเปลี่ยนการ์ดมือแรก: สับคืนการ์ดแพง (ค่าร่าย 5 ขึ้นไป) ถ้ามือแรกยังไม่มีมินเนี่ยนถูก ๆ ก็สับใบแพงสุดคืนอีกใบ
+function aiMulligan(g, o) {
+  const hand = g.P(o).hand.filter(h => h.id !== 'hell_coin');
+  const back = hand.filter(h => h.card.cost >= 5);
+  if (!hand.some(h => h.card.type === 'minion' && h.card.cost <= 3)) {
+    const rest = hand.filter(h => !back.includes(h)).sort((a, b) => b.card.cost - a.card.cost);
+    if (rest[0] && rest[0].card.cost >= 3) back.push(rest[0]);
+  }
+  return back.map(h => h.uid);
 }
 
 function aiPickAttack(g, m) {
@@ -76,9 +87,9 @@ async function aiTurn(g, ui) {
       if (t === false) continue;
       await ui.showEnemyPlay(h, t);
       if (ui.g !== g) return;
-      if (LEGEND_FX[h.card.id]) { Aim.stop(); await playEntrance(h.card, 1); if (ui.g !== g) return; }
-      g.play(o, h.uid, t);
-      ui.render();
+      if (LEGEND_FX[h.card.id]) { Aim.stop(); await playEntrance(h.card, 1, { target: t || null }); if (ui.g !== g) return; }
+      await ui.playWithFx(o, h.uid, t);   // เวทที่ทำดาเมจ: ลูกเวทพุ่งไปหาเป้าก่อนแสดงผล
+      if (ui.g !== g) return;
       await ui.wait(1000);
       ui.clearEnemyPlay();
       await ui.wait(250);
@@ -97,7 +108,8 @@ async function aiTurn(g, ui) {
     if (!t) { tried.add(m.uid); continue; }
     await ui.aim(m, t);
     await ui.animateAttack(m, t);
-    if (!g.attack(m, t)) tried.add(m.uid);
+    if (!(await ui.attackWithFx(m, t))) tried.add(m.uid);
+    if (ui.g !== g) return;
     ui.render();
     await ui.wait(800);
   }

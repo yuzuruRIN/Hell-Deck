@@ -79,6 +79,9 @@ function showTitle() {
 function resumeRun() {
   RUN = loadSave();
   if (!RUN) return showTitle();
+  // เซฟเก่า: สมบัติ r_double ถูกแยกเป็น 2 ชิ้น → ให้ชิ้น Battlecry แทน / ตัดสมบัติหรือการ์ดที่ไม่มีในเกมแล้วทิ้ง
+  RUN.relics = (RUN.relics || []).map(id => (id === 'r_double' ? 'r_battlecry' : id)).filter(id => RELICS[id]);
+  RUN.deck = (RUN.deck || []).filter(id => CARDS[id]);
   ({ draft: showDraft, reward: showReward, relic: showRelicPick, shop: showShop }[RUN.stage] || showMap)();
 }
 
@@ -149,10 +152,12 @@ function showPicker({ title, sub, ids, exact, max, allowSkip, onDone, onBack }) 
   const limit = exact || max;
   const sel = new Set();
   let finished = false;
+  const shownAt = performance.now();   // กันคลิกที่ค้างมาจากหน้าก่อน (เช่น ดับเบิลคลิกปุ่มเลือกฮีโร่) ไปติ๊กการ์ดโดยไม่ตั้งใจ
   setScreen(`
     <div class="screen">
+      ${RUN ? topBarHTML() : ''}
       <header class="s-head"><h2>${title}</h2><p>${sub}</p></header>
-      <div class="card-grid">${ids.map((id, i) => cardHTML(CARDS[id], { cls: 'pickable', attrs: `data-i="${i}"` })).join('')}</div>
+      <div class="card-grid">${ids.map((id, i) => cardHTML(CARDS[id], { cls: 'pickable', attrs: `data-pick-i="${i}"` })).join('')}</div>
       <div class="bar sticky">
         ${onBack ? '<button class="btn ghost" data-pk="back">← กลับ</button>' : ''}
         <span class="pk-count" id="pkCount"></span>
@@ -160,9 +165,12 @@ function showPicker({ title, sub, ids, exact, max, allowSkip, onDone, onBack }) 
         <button class="btn primary" data-pk="ok" id="pkOk">ยืนยัน</button>
       </div>
     </div>`, e => {
-    const card = e.target.closest('[data-i]');
+    if (RUN && e.target.closest('.topbar') && handleTopBar(e)) return;   // ปุ่มดูเด็ค / เมนูหลัก
+    // ใช้ data-pick-i (รูปการ์ดมี data-i ของตัวเองไว้นับนามสกุลไฟล์ — ถ้าใช้ชื่อซ้ำ แตะที่รูปจะไปติ๊กการ์ดใบอื่น)
+    const card = e.target.closest('[data-pick-i]');
+    if (card && performance.now() - shownAt < 350) return;
     if (card) {
-      const i = +card.dataset.i;
+      const i = +card.dataset.pickI;
       if (sel.has(i)) sel.delete(i);
       else if (sel.size < limit) sel.add(i);
       else if (limit === 1) { sel.clear(); sel.add(i); }
@@ -176,7 +184,10 @@ function showPicker({ title, sub, ids, exact, max, allowSkip, onDone, onBack }) 
     else if (a === 'back') onBack();
   });
   function upd() {
-    document.querySelectorAll('.card-grid [data-i]').forEach(el => el.classList.toggle('picked', sel.has(+el.dataset.i)));
+    // นับจากการ์ดที่ขึ้นเครื่องหมายเลือกจริงบนจอ (ตัวเลขกับที่เห็นตรงกันเสมอ)
+    const grid = document.querySelectorAll('#app .card-grid [data-pick-i]');
+    grid.forEach(el => el.classList.toggle('picked', sel.has(+el.dataset.pickI)));
+    [...sel].forEach(i => { if (![...grid].some(el => +el.dataset.pickI === i)) sel.delete(i); });
     $('#pkCount').textContent = `เลือกแล้ว ${sel.size}/${limit}`;
     $('#pkOk').disabled = exact ? sel.size !== exact : sel.size === 0;
   }
@@ -314,10 +325,12 @@ function showRelicPick() {
   const opts = RUN.relicOpts;
   setScreen(`
     <div class="screen">
+      ${topBarHTML()}
       <header class="s-head"><h2>🎁 สมบัติ! หยิบได้ 1 ชิ้น</h2><p>สุ่มมา 3 ชิ้น เลือกเก็บได้ 1 ชิ้น สมบัติจะติดตัวคุณไปตลอดรัน</p></header>
       <div class="relic-grid">${opts.map(id => relicHTML(RELICS[id], { cls: 'pickable', attrs: `data-relic="${id}"` })).join('')}</div>
       <div class="bar"><button class="btn ghost" data-act="skip">ข้าม</button></div>
     </div>`, e => {
+    if (e.target.closest('.topbar') && handleTopBar(e)) return;
     const id = e.target.closest('[data-relic]')?.dataset.relic;
     if (id) { RUN.relics.push(id); RUN.relicOpts = null; nextStage(); }
     else if (e.target.closest('[data-act="skip"]')) { RUN.relicOpts = null; nextStage(); }
@@ -385,6 +398,12 @@ function buy(id) {
       pay(); RUN.relics.push(r); save();
       return showShop(`🎁 ได้รับ ${RELICS[r].emoji} ${RELICS[r].name} — ${RELICS[r].text}`);
     }
+    case 'anycard': {
+      // เลือกการ์ดใบไหนก็ได้ในเกม (การ์ดที่สุ่มได้ทั้งหมด เรียงตามค่าร่าย)
+      const ids = [...POOL].sort((a, b) => CARDS[a].cost - CARDS[b].cost || CARDS[a].name.localeCompare(CARDS[b].name));
+      return showPicker({ title: `${it.emoji} ${it.name}`, sub: `เลือกการ์ดใบไหนก็ได้ 1 ใบ (จ่าย 🪙 ${it.price}) — ชี้การ์ดค้างไว้เพื่อดูรายละเอียด`, ids, exact: 1, onBack: back,
+        onDone: idx => { pay(); RUN.deck.push(ids[idx[0]]); save(); showShop(`เพิ่ม ${CARDS[ids[idx[0]]].name} เข้าเด็คแล้ว`); } });
+    }
     case 'pick': case 'legend': {
       const ids = id === 'pick' ? sampleCards(10) : sample(POOL_LEGENDS, 3);
       return showPicker({ title: `${it.emoji} ${it.name}`, sub: `เลือก 1 ใบ (จ่าย 🪙 ${it.price})`, ids, exact: 1, onBack: back,
@@ -412,13 +431,23 @@ function buy(id) {
 function showDeckModal() {
   const m = document.createElement('div');
   m.className = 'modal';
+  const types = { minion: 0, spell: 0, trap: 0 };
+  RUN.deck.forEach(id => { types[CARDS[id].type]++; });
+  const avg = (RUN.deck.reduce((t, id) => t + CARDS[id].cost, 0) / Math.max(1, RUN.deck.length)).toFixed(1);
   m.innerHTML = `<div class="modal-box">
     <header><h2>🃏 เด็คของคุณ (${RUN.deck.length} ใบ)</h2><button class="btn small" data-close>ปิด ✕</button></header>
+    <div class="deck-stats">
+      <span>😈 มินเนี่ยน ${types.minion}</span><span>✨ เวทมนตร์ ${types.spell}</span>${types.trap ? `<span>🪤 กับดัก ${types.trap}</span>` : ''}<span>💎 ค่าร่ายเฉลี่ย ${avg}</span>
+      <div class="deck-curve">${manaCurveHTML(RUN.deck)}</div>
+    </div>
     <div class="card-grid small">${deckSummary(RUN.deck).map(([id, n]) => cardHTML(CARDS[id], { extra: n > 1 ? `<div class="count">×${n}</div>` : '' })).join('')}</div>
     <h3>สมบัติ</h3>
     <div class="relic-grid small">${RUN.relics.map(id => relicHTML(RELICS[id])).join('') || '<p class="muted">ยังไม่มีสมบัติ</p>'}</div>
   </div>`;
-  m.onclick = e => { if (e.target === m || e.target.closest('[data-close]')) m.remove(); };
+  const close = () => { m.remove(); document.removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') close(); };
+  m.onclick = e => { if (e.target === m || e.target.closest('[data-close]')) close(); };
+  document.addEventListener('keydown', esc);
   document.body.appendChild(m);
 }
 

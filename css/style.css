@@ -65,6 +65,7 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
   background: radial-gradient(circle at 50% 40%, #6a1e2e, #230910); }
 .art .emoji { font-size: 2.6em; line-height: 1; filter: drop-shadow(0 2px 4px #0009); }
 .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.art.has-img .emoji { display: none; }
 
 /* ============================ การ์ด ============================ */
 .card {
@@ -256,7 +257,8 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .hero-row { height: 12.5vh; gap: 2.5em; }
 .hand.player { height: 26vh; align-items: flex-end; padding-bottom: 1.6vh; }
 .hand.player .card { font-size: calc(var(--u) * 1.5); margin: 0 calc(-0.25em * var(--n, 0) / 2.5); transition: transform .15s, box-shadow .15s; cursor: pointer; }
-.hand.player .card:hover { transform: translateY(-2.2em) scale(1.12); z-index: 10; }
+.hand.player .card:hover, .hand.player .card.hov { transform: translateY(-2.2em) scale(1.12); z-index: 10; }
+.hand.player .card.no-anim { transition: none !important; }   /* การ์ดที่ชี้ค้างอยู่ตอนมือถูกวาดใหม่: ยกค้างทันที ไม่เด้งใหม่ */
 .hand.player .card.playable { box-shadow: 0 0 0 .18em #3dff6a, 0 0 1.2em #3dff6a99; }
 .hand.player .card.selected { transform: translateY(-2.6em) scale(1.12); z-index: 11; box-shadow: 0 0 0 .22em var(--gold), 0 0 1.6em var(--gold); }
 
@@ -385,9 +387,17 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 
 .b-log-head { font-size: .78em; color: #ffb3c1; font-weight: 600; }
 .b-log-head small { color: var(--muted); font-weight: 400; }
-.log-entry { padding: 1px 4px; border-radius: 4px; }
-.log-entry.has-card { cursor: help; }
-.log-entry.has-card:hover { background: #ff2d5533; color: #fff; }
+.log-entry { padding: 2px 4px; border-radius: 4px; }
+.log-entry + .log-entry { border-top: 1px solid #ffffff0d; }
+.log-entry.has-card .log-main { cursor: help; border-radius: 4px; }
+.log-entry.has-card .log-main:hover { background: #ff2d5533; color: #fff; }
+/* รายละเอียดย่อยของแต่ละ move: ดาเมจ / ตาย / เรียกมินเนี่ยน / บัฟ ... */
+.log-subs { list-style: none; margin: 1px 0 2px .5em; padding: 0 0 0 .55em; border-left: 2px solid #ff2d5544; font-size: .86em; color: #d9c3c8; }
+.log-subs li { padding: 0 0 1px; line-height: 1.35; }
+.log-subs li b { color: #ffe6ea; }
+.log-subs li.more { color: var(--muted); font-style: italic; }
+.log-entry.turn { margin-top: 4px; border-top: none; }
+.log-entry.turn .turn-head { color: var(--gold); font-weight: 700; font-size: .85em; letter-spacing: .5px; }
 .b-speed { font-size: .75em; color: var(--muted); display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .b-speed .btn.small { font-size: .9em; padding: .15em .5em; }
 
@@ -490,21 +500,33 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .hand-warn { color: #ff6b4d; font-weight: 800; font-size: .95em; animation: warnPulse 1s ease-in-out infinite; }
 @keyframes warnPulse { 50% { opacity: .55; } }
 
-.burn-fx { position: absolute; left: calc(50% + var(--off, 0em)); z-index: 45; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center; gap: .4em; animation: burnUp var(--dur, 2.2s) ease-in forwards; }
-.burn-fx.mine { bottom: 24vh; }
-.burn-fx.theirs { top: 7vh; }
-.burn-fx .card { font-size: calc(var(--u) * 1.4); animation: burnCard var(--dur, 2.2s) ease-in forwards; }
-.burn-cap { font-weight: 800; color: #ffd27a; background: #000c; padding: .15em .8em; border-radius: .6em; text-shadow: 0 0 8px #ff5a00; white-space: nowrap; }
-.burn-flame { position: absolute; left: 50%; bottom: -1em; width: 13em; height: 18em; transform: translateX(-50%); border-radius: 50% 50% 20% 20%;
-  background: radial-gradient(ellipse at 50% 100%, #ffdd55 0%, #ff7a1a 30%, #e01b1baa 55%, transparent 72%);
-  mix-blend-mode: screen; filter: blur(6px); animation: flame var(--dur, 2.2s) ease-in forwards; }
-@keyframes burnUp { 0% { opacity: 0; transform: translate(-50%, 20px); } 12% { opacity: 1; transform: translate(-50%, 0); }
-  70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -40px); } }
-@keyframes burnCard { 0%, 30% { filter: none; } 60% { filter: sepia(1) saturate(3) brightness(1.1) hue-rotate(-20deg); }
-  100% { filter: sepia(1) brightness(.15) blur(2px); transform: scale(.85) rotate(-4deg); } }
-@keyframes flame { 0%, 25% { opacity: 0; transform: translateX(-50%) scaleY(.2); } 45% { opacity: 1; transform: translateX(-50%) scaleY(1); }
-  100% { opacity: 0; transform: translateX(-50%) scaleY(1.3); } }
+/* การ์ดล้นมือถูกเผา: โผล่ข้างกองเด็คของเจ้าของ → เปลวไฟเลียขึ้น การ์ดไหม้เกรียมจากล่างขึ้นบน → มอดเป็นเถ้า */
+.burn-fx { position: fixed; z-index: 260; pointer-events: none; translate: -100% -50%;
+  display: flex; flex-direction: column; align-items: center; gap: .3em; animation: burnIn var(--dur, 1.1s) ease-in forwards; }
+.burn-fx .card { font-size: calc(var(--u) * 1.05); margin: 0; }
+.burn-cap { font-weight: 800; font-size: .85em; color: #ffd27a; background: #000c; padding: .1em .7em; border-radius: .6em; text-shadow: 0 0 8px #ff5a00; white-space: nowrap; }
+.burn-card { position: relative; animation: burnCard var(--dur, 1.1s) ease-in forwards; }
+.burn-card::after { content: ''; position: absolute; inset: 0; border-radius: .6em; pointer-events: none;
+  background: linear-gradient(to top, #050100 0%, #1e0600 38%, #ff4a00 45%, #ffd36a 47.5%, #ff8a0000 53%) 0 0 / 100% 260% no-repeat;
+  animation: charUp var(--dur, 1.1s) cubic-bezier(.4, 0, .7, 1) forwards; }
+.burn-fire { position: absolute; left: -18%; right: -18%; bottom: -6%; height: 125%; pointer-events: none; mix-blend-mode: screen;
+  filter: blur(.6px) drop-shadow(0 0 4px #ff5a00); }
+/* เปลวไฟแต่ละลิ้น: ทรงหยดน้ำปลายแหลม (mask รูปเปลว) ไล่สีขาวเหลืองที่โคน → ส้ม → แดงที่ปลาย */
+.burn-fire i { position: absolute; bottom: 0; left: var(--x); width: var(--w, 30%); height: var(--h); translate: -50% 0; opacity: 0; scale: 1 .2;
+  transform-origin: 50% 100%;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 40' preserveAspectRatio='none'%3E%3Cpath d='M10 0C13 9 20 15 19.5 26C19 35 14 40 10 40C6 40 1 35 .5 26C0 18 5 13 7 7C8 12 9 14 10 15C11 10 10.6 5 10 0Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 40' preserveAspectRatio='none'%3E%3Cpath d='M10 0C13 9 20 15 19.5 26C19 35 14 40 10 40C6 40 1 35 .5 26C0 18 5 13 7 7C8 12 9 14 10 15C11 10 10.6 5 10 0Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  background: linear-gradient(to top, #fffbd0 0%, #ffe066 18%, #ffa020 40%, #ff5a0f 62%, #d81c0a 84%, #a0100800 100%);
+  animation: flameLick calc(var(--dur, 1.1s) * .16) ease-in-out var(--dl) infinite alternate, flameLife var(--dur, 1.1s) ease-out forwards; }
+.burn-fx > b { position: absolute; left: var(--x); bottom: 10%; width: 4px; height: 4px; border-radius: 50%; background: #ffcf5a; opacity: 0;
+  box-shadow: 0 0 6px 2px #ff6a00; animation: ember var(--dur, 1.1s) ease-out var(--dl) forwards; }
+@keyframes burnIn { 0% { opacity: 0; scale: .8; } 10% { opacity: 1; scale: 1; } 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes burnCard { 0%, 25% { filter: none; } 55% { filter: sepia(.8) saturate(2.4) brightness(1.15) hue-rotate(-18deg); }
+  100% { filter: sepia(1) brightness(.2) blur(1px); transform: translateY(-.4em) scale(.9) rotate(-3deg); opacity: .2; } }
+@keyframes charUp { 0%, 12% { background-position: 0 0; } 85%, 100% { background-position: 0 100%; } }
+@keyframes flameLick { from { transform: scaleY(.82) skewX(-5deg); } to { transform: scaleY(1.14) skewX(5deg); } }
+@keyframes flameLife { 0% { opacity: 0; scale: 1 .2; } 14% { opacity: 1; scale: 1 1; } 60% { opacity: 1; scale: 1.05 1.1; } 100% { opacity: 0; scale: .7 .5; translate: -50% -40%; } }
+@keyframes ember { 0% { opacity: 0; transform: none; } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -6em) scale(.4); } }
 
 /* ============================ ไอคอน HP (หยดเลือด) / เกราะ (โล่) ============================ */
 .hero .h-hp, .m-hp, .card .hp { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 48'%3E%3Cdefs%3E%3CradialGradient id='g' cx='38%25' cy='55%25' r='65%25'%3E%3Cstop offset='0' stop-color='%23ff8a8a'/%3E%3Cstop offset='.55' stop-color='%23d01c2c'/%3E%3Cstop offset='1' stop-color='%236e0612'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M20 2C20 2 4 21 4 31a16 16 0 0 0 32 0C36 21 20 2 20 2Z' fill='url(%23g)' stroke='%232a0006' stroke-width='2'/%3E%3Cpath d='M11 28c0-4 3-9 6-13' stroke='%23fff' stroke-opacity='.45' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat !important; border-radius: 0 !important; padding-top: .45em; }
@@ -913,17 +935,21 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
   background: radial-gradient(ellipse at 50% 42%, #1a0006, #050002 55%, #000); }
 .sx.sx-spread .sx-dark { opacity: .97; transition: opacity calc(var(--k) * .9s) ease-in calc(var(--k) * .15s); }
 
-/* ดวงตา 4 ดวง: คู่ใหญ่ด้านล่าง คู่เล็กเฉียงขึ้นด้านบน ตาขาวสีแดงสว่าง รูม่านตาสีขาวชมพู */
-.sx .sx-eyes { position: absolute; width: 0; height: 0; z-index: 4; }
-.sx .sx-eyes .e { position: absolute; translate: -50% -50%; border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; scale: 1 0; opacity: 0;
-  background: radial-gradient(ellipse 40% 60% at 50% 55%, #fff 0 22%, #ffd0dc 32%, #ff3b3b 42%, #e0001a 70%, #7a000c 100%);
-  box-shadow: 0 0 calc(var(--u) * 18) #ff1a1a, 0 0 calc(var(--u) * 50) #ff000099, 0 0 calc(var(--u) * 110) #ff000055; }
-.sx .sx-eyes .big { width: calc(var(--u) * 120); height: calc(var(--u) * 62); top: calc(var(--u) * 30); }
-.sx .sx-eyes .big.l { left: calc(var(--u) * -95); rotate: 14deg; }
-.sx .sx-eyes .big.r { left: calc(var(--u) * 95); rotate: -14deg; }
-.sx .sx-eyes .small { width: calc(var(--u) * 70); height: calc(var(--u) * 36); top: calc(var(--u) * -48); }
-.sx .sx-eyes .small.l { left: calc(var(--u) * -150); rotate: 24deg; }
-.sx .sx-eyes .small.r { left: calc(var(--u) * 150); rotate: -24deg; }
+/* ดวงตา 4 ดวงแบบ Stolas: ทรงเรียวแหลมทั้งหัวตาและหางตา หางตาด้านนอกเชิดขึ้น (ดุ ๆ)
+   แดงสว่างทั้งดวง ไม่มีนัยน์ตา / คู่ใหญ่ด้านล่าง คู่เล็กเอียงชันอยู่เหนือหัวตา
+   แสงเรืองอยู่ที่กล่องแม่ (clip-path ตัด box-shadow ของตัวเองทิ้ง) */
+.sx .sx-eyes { position: absolute; width: 0; height: 0; z-index: 4;
+  filter: drop-shadow(0 0 calc(var(--u) * 6) #ff1a1a) drop-shadow(0 0 calc(var(--u) * 22) #ff0000b0) drop-shadow(0 0 calc(var(--u) * 50) #ff000066); }
+.sx .sx-eyes .e { position: absolute; translate: -50% -50%; scale: 1 0; opacity: 0;
+  background: radial-gradient(ellipse 55% 60% at 50% 50%, #ff7070 0%, #ff3030 40%, #f20018 75%, #b0000f 100%);
+  clip-path: polygon(0% 16%, 18% 6%, 38% 3%, 60% 9%, 80% 26%, 100% 64%, 82% 80%, 60% 90%, 38% 88%, 18% 68%, 6% 40%); }
+.sx .sx-eyes .e.r { clip-path: polygon(100% 16%, 82% 6%, 62% 3%, 40% 9%, 20% 26%, 0% 64%, 18% 80%, 40% 90%, 62% 88%, 82% 68%, 94% 40%); }
+.sx .sx-eyes .big { width: calc(var(--u) * 128); height: calc(var(--u) * 36); top: calc(var(--u) * 30); }
+.sx .sx-eyes .big.l { left: calc(var(--u) * -92); rotate: 15deg; }
+.sx .sx-eyes .big.r { left: calc(var(--u) * 92); rotate: -15deg; }
+.sx .sx-eyes .small { width: calc(var(--u) * 74); height: calc(var(--u) * 22); top: calc(var(--u) * -62); }
+.sx .sx-eyes .small.l { left: calc(var(--u) * -58); rotate: 58deg; }
+.sx .sx-eyes .small.r { left: calc(var(--u) * 58); rotate: -58deg; }
 .sx.sx-eyes-on .sx-eyes .e { animation: sxEyeOpen calc(var(--k) * .45s) cubic-bezier(.3,1.6,.5,1) forwards, sxEyeGlow calc(var(--k) * .6s) ease-in-out calc(var(--k) * .45s) infinite alternate; }
 .sx.sx-eyes-on .sx-eyes .small { animation-delay: calc(var(--k) * .22s), calc(var(--k) * .67s); }
 @keyframes sxEyeOpen { 0% { scale: 1 0; opacity: 0; } 30% { opacity: 1; } 100% { scale: 1 1; opacity: 1; } }
@@ -946,7 +972,10 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 @keyframes sxVortex { 0% { rotate: 0deg; scale: 1; } 100% { rotate: 900deg; scale: 0; } }
 .sx .st-title { z-index: 6; }
 
-/* ============================ ตีแรง (พลังโจมตี 5+) ============================ */
+/* ============================ เอฟเฟคพิกเซล (pixelfx) ============================ */
+#pfxLayer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 280; pointer-events: none; image-rendering: pixelated; }
+
+/* ============================ ตีแรง (พลังโจมตี 10+) ============================ */
 .b-arena.heavy-hit { animation: heavyHit .34s cubic-bezier(.3,.6,.4,1); }
 .b-arena.heavy-hit.mega { animation: heavyHitMega .42s cubic-bezier(.3,.6,.4,1); }
 @keyframes heavyHit { 0% { translate: 0 0; } 15% { translate: -7px 5px; rotate: -.25deg; } 35% { translate: 6px -4px; rotate: .2deg; }
@@ -960,10 +989,18 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 @media (prefers-reduced-motion: reduce) { .b-arena.heavy-hit, .b-arena.heavy-hit.mega { animation: none; } }
 
 /* ============================ Divine Shield: ม่านแสงสีเหลืองจาง ๆ คลุมทั้งวงรี ============================ */
-.unit.shielded::before { inset: -.3em; border: .14em solid #ffe9887a;
-  background: radial-gradient(ellipse at 50% 30%, #fffbe055, #ffe06630 45%, #ffd23a40 80%, #ffd23a66 100%);
-  box-shadow: 0 0 .9em #ffe066aa, inset 0 0 1.1em #ffe06677; animation: shieldGlow 2.2s ease-in-out infinite; }
-@keyframes shieldGlow { 0%, 100% { opacity: .85; } 50% { opacity: 1; filter: brightness(1.15); } }
+/* ฟองโล่สีทองคลุมทับรูปทั้งวง: ขอบทองหนา + สีทองเคลือบทั้งรูป + จุดสะท้อนแสงแบบฟองสบู่ + แสงวาบกวาดผ่าน */
+.unit.shielded::before { inset: -.32em; border: .2em solid #ffe476; z-index: 3;
+  background:
+    radial-gradient(ellipse 22% 14% at 30% 20%, #fffef6e6 0 35%, #fffbe000 100%),
+    radial-gradient(ellipse 9% 6% at 70% 78%, #fff8d0aa 0 40%, #fff8d000 100%),
+    linear-gradient(115deg, #fff6c000 35%, #fff6c08c 47%, #fff6c000 59%) 0 0 / 300% 100% no-repeat,
+    radial-gradient(ellipse at 50% 48%, #ffe06633 0%, #ffd84a59 55%, #ffc928a6 85%, #ffbf1ad9 100%);
+  box-shadow: 0 0 .5em .1em #ffe066, 0 0 1.6em #ffcf3399, inset 0 0 1.2em #ffe066cc;
+  animation: shieldGlow 2.2s ease-in-out infinite, shieldSheen 3.2s ease-in-out infinite; }
+.unit.shielded .art { filter: sepia(.28) saturate(1.25) brightness(1.08); }
+@keyframes shieldGlow { 0%, 100% { opacity: .92; } 50% { opacity: 1; filter: brightness(1.2); } }
+@keyframes shieldSheen { 0%, 35% { background-position: 0 0, 0 0, 120% 0, 0 0; } 75%, 100% { background-position: 0 0, 0 0, -20% 0, 0 0; } }
 
 /* ============================ Windfury: สายลมวนรอบตัวมินเนี่ยน ============================ */
 .unit .wf { position: absolute; inset: 0; z-index: 2; pointer-events: none; perspective: 30em; }
@@ -1012,3 +1049,464 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .mini-entry:hover { transform: scale(1.08); }
 .mini-cost { position: absolute; top: 1px; left: 1px; min-width: 16px; height: 16px; border-radius: 50%; background: #2a6bff; color: #fff;
   font-size: 10px; font-weight: 800; display: grid; place-items: center; text-shadow: 0 1px 1px #000; }
+
+/* ============================ Octavia: ควันมืดดำม่วง → ร่าง True form นกฮูกเหนือตัว → สลายกลับเข้าตัว ============================ */
+.legend-stage.lg-octavia.oc { background: none; animation: none; }
+.oc .oc-dim { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 40%, #3a0b4ccc, #12031cee 60%, #050008f5); transition: opacity calc(var(--k) * .5s) ease-out; }
+.oc.oc-smoking .oc-dim { opacity: 1; }
+.oc.oc-fade .oc-dim { opacity: .55; transition-duration: calc(var(--k) * .6s); }
+.oc .oc-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 3;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #b04dff; }
+.oc .oc-unit .art { width: 100%; height: 100%; }
+.oc.oc-landed .oc-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .25s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s); }
+.oc.oc-smoking .oc-unit { box-shadow: 0 0 0 .15em #ff9cf5, 0 0 1.4em #d24dff, 0 0 3em #6a1a9a; }
+/* ควันมืด: ก้อนดำม่วงขอบเรืองชมพู (แบบพลังในภาพอ้างอิง) พวยพุ่งออกรอบตัวแล้วลอยขึ้น */
+.oc .oc-smoke { position: absolute; width: 0; height: 0; z-index: 2; }
+.oc .oc-smoke i { position: absolute; left: 0; top: 0; width: calc(var(--d) * .62 * var(--s)); aspect-ratio: 1.15; translate: -50% -50%; opacity: 0;
+  border-radius: 46% 54% 58% 42% / 52% 40% 60% 48%;
+  background: radial-gradient(ellipse at 45% 55%, #0b0212 0%, #1f0733 55%, #3a1060 80%, #6a2a9a 100%);
+  box-shadow: 0 0 0 .14em #ffb8f6, 0 0 .7em .1em #ff4fd8, inset 0 0 .6em #ff4fd855; }
+.oc.oc-smoking .oc-smoke i { animation: ocPuff calc(var(--k) * 1.3s) cubic-bezier(.2,.8,.4,1) var(--dl) forwards; }
+@keyframes ocPuff { 0% { opacity: 0; transform: rotate(var(--a)) translateX(0) scale(.2); }
+  20% { opacity: 1; } 70% { opacity: .9; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(calc(var(--r) * 1.7)) translateY(calc(var(--d) * -.5)) scale(1.15) rotate(90deg); } }
+/* ร่าง True form */
+.oc .oc-owl { position: absolute; translate: -50% -50%; z-index: 1; opacity: 0; scale: .15; transform-origin: 50% var(--oo); pointer-events: none;
+  filter: drop-shadow(0 0 .25em #ff8af0) drop-shadow(0 0 1.2em #c23dff) drop-shadow(0 0 3em #7a1ab0aa); }
+.oc .oc-owl svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.oc .oc-owl .wf, .oc .oc-owl .bd { fill: url(#ocBody); stroke: #ffc4f6; stroke-width: 1.3; stroke-linejoin: round; }
+.oc .oc-owl .wl { fill: none; stroke: #ff6ee0; stroke-width: .7; stroke-linecap: round; opacity: .55; }
+.oc .oc-owl .fd { fill: #0a0212aa; stroke: #ff8ae8; stroke-width: .6; opacity: .8; }
+.oc .oc-owl .mk { fill: #ff7ae6; filter: drop-shadow(0 0 2px #ff4fd8); }
+.oc .oc-owl .ey { fill: #ff2d4a; filter: drop-shadow(0 0 1.5px #ff2d4a) drop-shadow(0 0 4px #ff0030); }
+.oc .oc-owl .w { transform-box: view-box; transform-origin: 50% 39%; }
+.oc.oc-rise .oc-owl { opacity: .96; scale: 1; transition: scale calc(var(--k) * .7s) cubic-bezier(.2,1.25,.4,1), opacity calc(var(--k) * .35s) ease-out; }
+.oc.oc-rise .oc-owl .w.r { animation: ocFlapR calc(var(--k) * .55s) ease-in-out calc(var(--k) * .5s) infinite alternate; }
+.oc.oc-rise .oc-owl .w.l { animation: ocFlapL calc(var(--k) * .55s) ease-in-out calc(var(--k) * .5s) infinite alternate; }
+@keyframes ocFlapR { from { transform: none; } to { transform: rotate(-6deg); } }
+@keyframes ocFlapL { from { transform: none; } to { transform: rotate(6deg); } }
+.oc.oc-glare .oc-owl .ey { animation: ocGlare calc(var(--k) * .8s) ease-out forwards; }
+.oc.oc-glare .oc-owl .mk { animation: ocGlare calc(var(--k) * .8s) ease-out calc(var(--k) * .1s) forwards; }
+@keyframes ocGlare { 0% { filter: drop-shadow(0 0 1.5px #ff2d4a); } 25% { fill: #fff0f4; filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px #ff2d4a) drop-shadow(0 0 22px #ff0030); }
+  100% { filter: drop-shadow(0 0 2px #ff2d4a) drop-shadow(0 0 6px #ff0030); } }
+/* สลาย: ร่างหดลงไปหาตัวมินเนี่ยน เบลอเป็นควันแล้วหายไป */
+.oc.oc-fade .oc-owl { opacity: 0; scale: .1; filter: blur(.6em) drop-shadow(0 0 1.2em #c23dff);
+  transition: scale calc(var(--k) * .6s) cubic-bezier(.6,0,.8,.5), opacity calc(var(--k) * .6s) ease-in, filter calc(var(--k) * .6s); }
+.oc.oc-fade .oc-unit { box-shadow: 0 0 0 .18em #ffc4f6, 0 0 1.8em #ff4fd8, 0 0 4em #a02dff; }
+/* ขนนกเรืองแสงสีชมพูร่วง */
+.oc .oc-feather { position: absolute; z-index: 2; width: max(5px, calc(var(--d) * .1)); height: max(14px, calc(var(--d) * .34)); opacity: 0; pointer-events: none;
+  border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; background: linear-gradient(90deg, #ff9cf000, #ffd6fa 50%, #ff9cf000);
+  box-shadow: 0 0 6px #ff6ee0, 0 0 12px #c23dff; animation: ocFeather 1.6s ease-in forwards; }
+@keyframes ocFeather { 0% { opacity: 0; transform: none; } 15% { opacity: 1; } 75% { opacity: .9; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); } }
+.oc .oc-title { z-index: 6; }
+.oc .oc-title b { color: #ffc4f6; text-shadow: 0 0 .3em #c23dff, 0 .06em 0 #3a0b4c, 0 .1em 0 #000; }
+
+/* Octavia ร่ายเวทแล้วได้พลัง: ควันมืดหมุนวนรอบตัวแล้วหดเข้าไป */
+.oc-aura { position: fixed; z-index: 240; pointer-events: none; translate: -50% -50%; }
+.oc-aura u { position: absolute; inset: -18%; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #0000 42%, #2a0a45aa 58%, #c23dff66 68%, #0000 74%); animation: ocRing var(--dur) ease-out forwards; }
+.oc-aura i { position: absolute; left: 50%; top: 50%; width: calc(34% * var(--s)); aspect-ratio: 1.15; margin: calc(-17% * var(--s)) 0 0 calc(-17% * var(--s)); opacity: 0;
+  border-radius: 46% 54% 58% 42% / 52% 40% 60% 48%;
+  background: radial-gradient(ellipse at 45% 55%, #0b0212 0%, #1f0733 55%, #3a1060 82%, #6a2a9a 100%);
+  box-shadow: 0 0 0 .12em #ffb8f6, 0 0 .6em .08em #ff4fd8; animation: ocOrbit var(--dur) cubic-bezier(.3,.1,.5,1) var(--dl) forwards; }
+.oc-aura b { position: absolute; left: var(--x); top: var(--y); color: #ffd6fa; font-size: .8em; opacity: 0; text-shadow: 0 0 6px #ff4fd8;
+  animation: ocSpark calc(var(--dur) * .6) ease-out var(--dl) forwards; }
+@keyframes ocOrbit { 0% { opacity: 0; transform: rotate(var(--a)) translateX(150%) scale(.4); }
+  20% { opacity: 1; transform: rotate(calc(var(--a) + 60deg)) translateX(165%) scale(1); }
+  70% { opacity: .95; transform: rotate(calc(var(--a) + 230deg)) translateX(110%) scale(.85); }
+  100% { opacity: 0; transform: rotate(calc(var(--a) + 330deg)) translateX(0) scale(.2); } }
+@keyframes ocRing { 0% { opacity: 0; scale: 1.25; } 30% { opacity: 1; } 100% { opacity: 0; scale: .7; } }
+@keyframes ocSpark { 0% { opacity: 0; transform: scale(.3); } 40% { opacity: 1; transform: scale(1.2) rotate(30deg); } 100% { opacity: 0; transform: translateY(-1.2em) scale(.6); } }
+.unit.oc-charged { animation: ocCharged .9s ease-out; }
+@keyframes ocCharged { 0% { box-shadow: 0 0 0 .2em #ff9cf5, 0 0 1.6em #c23dff; } 100% { box-shadow: 0 .3em .8em #000b; } }
+/* Octavia แบบคลิปวิดีโอ (assets/fx/octavia_trueform.webp) */
+.oc .oc-owl.vid { scale: .75; filter: drop-shadow(0 0 .35em #ff4fd8aa) drop-shadow(0 0 1.6em #9a2dff88); }
+.oc .oc-owl.vid img { width: 100%; height: 100%; object-fit: contain; display: block;
+  -webkit-mask: linear-gradient(90deg, #0000, #000 7%, #000 93%, #0000); mask: linear-gradient(90deg, #0000, #000 7%, #000 93%, #0000); }  /* ปลายปีกโดนขอบวิดีโอตัด → เฟดขอบซ้ายขวา */
+.oc.oc-rise .oc-owl.vid { opacity: 1; scale: 1; transition: scale calc(var(--k) * .5s) cubic-bezier(.2,1.2,.4,1), opacity calc(var(--k) * .25s) ease-out; }
+
+/* ============================ ป๊อปอัปการ์ด: ไม่ล้นจอ + เลื่อนอ่านด้วยลูกกลิ้ง / ค่าพลังจริงของมินเนี่ยนบนสนาม ============================ */
+#cardTip { max-height: calc(100vh - 16px); }
+#cardTip .tip-side { max-height: calc(100vh - 44px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; padding-right: 4px; }
+#cardTip.scrolly::after { content: '🖱️ หมุนลูกกลิ้งเพื่ออ่านต่อ ▼'; position: absolute; right: 16px; bottom: 6px; font-size: .75em; color: var(--gold);
+  background: #12050af0; padding: 2px 9px; border-radius: 8px; border: 1px solid #ffcc3355; }
+#cardTip.scrolly.at-end::after { content: '▲ อ่านครบแล้ว'; opacity: .6; }
+#cardTip .tip-main { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
+#cardTip .live-kw { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 13em; font-size: .78em; }
+#cardTip .live-kw span { background: #2a0b12; border: 1px solid #ffcc3366; border-radius: 8px; padding: 1px 7px; }
+#cardTip .live-kw span.st { border-color: #8fdcff88; }
+.card .atk.debuffed { color: #ff8080; }
+.card .hp.damaged { color: #ff6b6b; }
+
+/* ============================ Cleave: รอยฟันโค้งกวาดผ่านเป้าและตัวข้าง ๆ ============================ */
+.cleave-fx { position: fixed; z-index: 250; pointer-events: none; }
+.cleave-fx svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 4px #ff4f7a) drop-shadow(0 0 10px #ff2d55aa); }
+.cleave-fx path { fill: none; stroke: #fff2f6; stroke-width: 2.6; stroke-linecap: round;
+  stroke-dasharray: 100; stroke-dashoffset: 100; animation: cleaveCut var(--dur) cubic-bezier(.2,.7,.3,1) forwards; }
+.cleave-fx path.c2 { stroke: #ff4f7a; stroke-width: 1.6; animation-delay: calc(var(--dur) * .08); }
+.cleave-fx.down svg { transform: scaleY(-1); }
+@keyframes cleaveCut { 0% { stroke-dashoffset: 100; opacity: 1; } 45% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: -100; opacity: 0; } }
+
+/* ============================ Moxxie: กล้องสไนเปอร์ ============================ */
+.legend-stage.lg-moxxie.mx { background: none; animation: none; }
+.mx .mx-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 1;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #ff2d55; }
+.mx .mx-unit .art { width: 100%; height: 100%; }
+.mx.mx-landed .mx-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .25s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s); }
+/* วงกล้อง: นอกวงมืดทั้งจอ (box-shadow ขนาดยักษ์) ขอบเลนส์ดำ + เงามืดรอบขอบด้านใน + เลนส์อมฟ้าจาง ๆ */
+.mx .mx-scope { position: absolute; left: 50%; top: 50%; width: var(--S); height: var(--S); translate: -50% -50%; border-radius: 50%; z-index: 3;
+  opacity: 0; scale: 1.25; pointer-events: none;
+  background: radial-gradient(circle, #9fe8ff0d 0 55%, #00000055 74%, #000000d0 92%, #000 100%);
+  box-shadow: 0 0 0 200vmax #040203ec, 0 0 0 calc(var(--S) * .025) #0b0b0b, 0 0 0 calc(var(--S) * .032) #3a3a3a; }
+.mx.mx-aim .mx-scope { opacity: 1; scale: 1; transition: opacity calc(var(--k) * .22s), scale calc(var(--k) * .3s) cubic-bezier(.2,1.1,.4,1);
+  animation: mxBreath calc(var(--k) * 1.3s) ease-in-out infinite; }
+@keyframes mxBreath { 0%, 100% { translate: -50% -50%; } 30% { translate: calc(-50% + 2px) calc(-50% - 3px); } 65% { translate: calc(-50% - 2px) calc(-50% + 1px); } }
+/* กากบาท: เสาหนาจากขอบ + เส้นบางเว้นตรงกลาง */
+.mx .mx-scope .post, .mx .mx-scope .hair { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
+.mx .mx-scope .post.h { width: 100%; height: calc(var(--S) * .022); background: linear-gradient(90deg, #000 0 31%, transparent 31% 69%, #000 69%); }
+.mx .mx-scope .post.v { height: 100%; width: calc(var(--S) * .022); background: linear-gradient(180deg, #000 0 31%, transparent 31% 69%, #000 69%); }
+.mx .mx-scope .hair.h { width: 100%; height: 1.5px; background: linear-gradient(90deg, #000d 0 47%, transparent 47% 53%, #000d 53%); }
+.mx .mx-scope .hair.v { height: 100%; width: 1.5px; background: linear-gradient(180deg, #000d 0 47%, transparent 47% 53%, #000d 53%); }
+.mx .mx-ret { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 6px; height: 6px; border-radius: 50%; background: #ff2a2a;
+  box-shadow: 0 0 6px #ff0000, 0 0 2px #fff; color: #ff4f9a; display: grid; place-items: center; font-style: normal; line-height: 1; }
+.mx .mx-scope.heart .mx-ret { width: auto; height: auto; background: none; box-shadow: none; font-size: calc(var(--S) * .1); text-shadow: 0 0 8px #ff2d7a, 0 0 2px #fff; }
+.mx .mx-lockring { position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
+  border: 2px dashed #ff3a3a; box-shadow: 0 0 8px #ff000088; }
+.mx .mx-scope.heart .mx-lockring { border-color: #ff6eb4; }
+.mx.mx-lock .mx-lockring { animation: mxLock calc(var(--k) * .38s) cubic-bezier(.2,.9,.3,1) forwards; }
+.mx.mx-lock .mx-ret { animation: mxRetPulse calc(var(--k) * .19s) ease-in-out 2 alternate; }
+@keyframes mxLock { 0% { opacity: 0; scale: 2.2; rotate: 0deg; } 100% { opacity: 1; scale: .55; rotate: 90deg; } }
+@keyframes mxRetPulse { to { scale: 1.8; filter: brightness(1.6); } }
+.mx .mx-read { position: absolute; left: 50%; bottom: 13%; translate: -50% 0; display: flex; gap: .9em; font: 600 calc(var(--S) * .04) / 1 ui-monospace, Consolas, monospace;
+  color: #7dff9a; text-shadow: 0 0 4px #2bff5a; white-space: nowrap; }
+.mx .mx-read .lk { color: #ff3a3a; text-shadow: 0 0 4px #ff0000; opacity: 0; }
+.mx.mx-lock .mx-read .lk { opacity: 1; animation: mxBlink calc(var(--k) * .12s) steps(1) 3; }
+@keyframes mxBlink { 50% { opacity: 0; } }
+/* ยิง: แสงวาบในกล้อง + กล้องดีดขึ้น แล้วลดกล้องลง (วงกล้องและความมืดหายไป) */
+.mx .mx-flash { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, #fff 0, #fff6d0 35%, #ffd27a00 70%); opacity: 0; }
+.mx.mx-fire .mx-flash { animation: mxFlash calc(var(--k) * .22s) ease-out forwards; }
+.mx.mx-fire .mx-scope { animation: mxRecoil calc(var(--k) * .22s) ease-out forwards; }
+@keyframes mxFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mxRecoil { 0% { translate: -50% -50%; } 30% { translate: -50% calc(-50% - var(--S) * .12); rotate: -2deg; } 100% { translate: -50% calc(-50% - var(--S) * .05); } }
+.mx.mx-out .mx-scope { opacity: 0; scale: 1.35; transition: opacity calc(var(--k) * .22s) ease-in, scale calc(var(--k) * .22s) ease-in; }
+.mx .mx-title { z-index: 6; }
+
+/* ============================ กับดักทำงาน: พลิกเปิดกลางสนาม ค้างให้อ่านแล้วค่อยจางหาย ============================ */
+.trap-show { position: absolute; left: 50%; top: 50%; z-index: 80; pointer-events: none; translate: -50% -50%;
+  display: flex; flex-direction: column; align-items: center; gap: .5em; animation: trapShow var(--dur) ease-in-out forwards; }
+.trap-show::before { content: ''; position: absolute; left: 50%; top: 58%; width: 26em; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, #9b6bff55 0%, #5a2bb033 40%, #0000 70%); animation: trapGlow var(--dur) ease-out forwards; }
+.trap-show .trap-cap { font-weight: 800; font-size: calc(var(--u) * 2); color: #e9dcff; background: #0c0612ee; border: 2px solid #9b6bff;
+  padding: .2em 1em; border-radius: .6em; text-shadow: 0 0 10px #9b6bff; white-space: nowrap; box-shadow: 0 0 18px #9b6bff88; }
+.trap-show.foe .trap-cap { border-color: #ff4f7a; text-shadow: 0 0 10px #ff2d55; box-shadow: 0 0 18px #ff2d5588; color: #ffd6de; }
+.trap-show .trap-flip { perspective: 60em; }
+.trap-show .card { font-size: calc(var(--u) * 2); box-shadow: 0 0 2em #9b6bff, 0 .4em 1.2em #000c; animation: trapFlip calc(var(--dur) * .22) cubic-bezier(.3,1.4,.5,1) both; }
+@keyframes trapShow { 0% { opacity: 0; scale: .6; } 8% { opacity: 1; scale: 1.05; } 14% { scale: 1; } 82% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: .9; } }
+@keyframes trapFlip { 0% { transform: rotateY(180deg); filter: brightness(.2); } 60% { filter: brightness(1.6); } 100% { transform: rotateY(0); filter: none; } }
+@keyframes trapGlow { 0% { opacity: 0; scale: .3; } 15% { opacity: 1; scale: 1.1; } 100% { opacity: .5; scale: 1; } }
+/* ชี้การ์ดในแถบข้างแบบหุบ: หน้าการ์ด + รายละเอียดของ move นั้น */
+#cardTip .tip-move { width: 22em; max-width: 52vw; font-size: .9em; }
+#cardTip .tip-move .log-main { font-weight: 600; color: #ffe6ea; margin-bottom: 4px; }
+#cardTip .tip-move .log-subs { font-size: .95em; }
+
+/* ============================ Millie: ขวานตกจากฟ้า → ยกขวาน → ฟาดพื้น ============================ */
+.legend-stage.lg-millie.ml { background: radial-gradient(ellipse at 50% 55%, #3a0d1488, #0c0306b0 80%); }
+.ml .ml-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 2;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #ff2d55; }
+.ml .ml-unit .art { width: 100%; height: 100%; }
+.ml.ml-landed .ml-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .25s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s); }
+.ml .ml-unit.ml-bump { animation: mlBump calc(var(--k) * .3s) ease-out; }
+@keyframes mlBump { 30% { scale: 1.08 .92; } 100% { scale: 1; } }
+.ml.ml-hit .ml-unit { box-shadow: 0 0 1.4em #ff7a1a, 0 0 3em #ff2d55aa; }
+/* ขวาน: จุดหมุน = ด้ามจับ (ใกล้ปลายด้าม) อยู่กลางวงกลมมินเนี่ยน แล้วหมุนทั้งอันรอบจุดนั้น */
+.ml .ml-axe-pos { position: absolute; width: 0; height: 0; z-index: 3; opacity: 0; }
+.ml.ml-catch .ml-axe-pos { opacity: 1; }
+.ml .ml-axe-flip, .ml .ml-axe { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.ml .ml-axe img { position: absolute; height: var(--ah); width: auto; left: calc(var(--ah) * -.23); top: calc(var(--ah) * -.9);
+  filter: drop-shadow(0 .3em .4em #000c); pointer-events: none; }
+.ml .ml-glint { position: absolute; left: 0; top: calc(var(--ah) * -.78); width: calc(var(--ah) * .5); aspect-ratio: 1; translate: -50% -50%; opacity: 0;
+  background: radial-gradient(circle, #fff 0 6%, #fff0 30%), conic-gradient(from 0deg, #0000 0 22%, #fff8 25%, #0000 28% 47%, #fff8 50%, #0000 53% 72%, #fff8 75%, #0000 78% 97%, #fff8 100%);
+  border-radius: 50%; mix-blend-mode: screen; }
+.ml.ml-raise .ml-glint { animation: mlGlint calc(var(--k) * .35s) ease-out; }
+@keyframes mlGlint { 0% { opacity: 0; scale: .2; rotate: 0deg; } 40% { opacity: 1; scale: 1.2; } 100% { opacity: 0; scale: .6; rotate: 45deg; } }
+.ml.ml-done .ml-axe-pos { opacity: 0; transition: opacity calc(var(--k) * .3s) ease-in; }
+.ml .ml-title { z-index: 6; }
+/* คอมโบ Moxxie: หัวใจพุ่ง + วงหัวใจขยาย */
+.ml .ml-heart { position: absolute; z-index: 4; translate: -50% -50%; color: #ff6aa8; font-style: normal; opacity: 0; pointer-events: none;
+  text-shadow: 0 0 6px #ff2d7a, 0 0 2px #fff; animation: mlHeart calc(var(--k) * 1.1s) cubic-bezier(.2,.8,.4,1) forwards; }
+@keyframes mlHeart { 0% { opacity: 0; transform: translate(0, 0) scale(.3); } 15% { opacity: 1; }
+  70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(1.1); } }
+.ml .ml-heart-ring { position: absolute; z-index: 4; translate: -50% -50%; font-size: calc(var(--d) * 1.6); line-height: 1; color: #ff6aa800; pointer-events: none;
+  -webkit-text-stroke: 3px #ff8cc0; text-shadow: 0 0 18px #ff2d7a; animation: mlHeartRing calc(var(--k) * .9s) ease-out forwards; }
+@keyframes mlHeartRing { 0% { opacity: 1; scale: .2; } 60% { opacity: .9; } 100% { opacity: 0; scale: 2.4; } }
+
+/* ============================ Loona: เงาหอนข้างหลังมินเนี่ยน + พระจันทร์สีแดง ============================ */
+.legend-stage.lg-loona.ln { background: none; animation: none; }
+.ln .ln-dim { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%, #3a0610d0, #120207ee 60%, #050002f5); transition: opacity calc(var(--k) * .45s) ease-out; }
+.ln.ln-dark .ln-dim { opacity: 1; }
+.ln.ln-howl .ln-dim { background: radial-gradient(ellipse at 50% 25%, #5a0a18d8, #1a0309ee 60%, #070103f5); }
+.ln.ln-fade .ln-dim { opacity: .5; transition-duration: calc(var(--k) * .5s); }
+.ln .ln-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 4;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #ff2d55; }
+.ln .ln-unit .art { width: 100%; height: 100%; }
+.ln.ln-landed .ln-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .25s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s); }
+.ln.ln-howl .ln-unit { box-shadow: 0 0 0 .15em #ff6070, 0 0 1.6em #ff1a2e, 0 0 3.5em #a0001888; }
+/* เงา: ขอบล่างจางหายลงไปหลังตัวมินเนี่ยน */
+.ln .ln-shadow { position: absolute; translate: -50% -50%; z-index: 2; opacity: 0; scale: .9; pointer-events: none; transform-origin: 50% 85%;
+  -webkit-mask: linear-gradient(#000 70%, #0000 97%); mask: linear-gradient(#000 70%, #0000 97%);
+  filter: drop-shadow(0 0 .5em #ff1a2e88); }
+.ln .ln-shadow img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.ln.ln-rise .ln-shadow { opacity: 1; scale: 1; transition: opacity calc(var(--k) * .3s) ease-out, scale calc(var(--k) * .5s) cubic-bezier(.2,1.2,.4,1); }
+.ln.ln-howl .ln-shadow { filter: drop-shadow(0 0 .6em #ff1a2ecc) drop-shadow(0 0 2em #ff000055); }
+.ln.ln-fade .ln-shadow, .ln.ln-fade .ln-moon { opacity: 0; transition: opacity calc(var(--k) * .45s) ease-in; }
+/* พระจันทร์สีแดง: วงกลมแดงสว่างมีลายหลุมจาง ๆ + แสงเรือง + รัศมีหมุนช้า ๆ */
+.ln .ln-moon { position: absolute; width: calc(var(--mr) * 2); aspect-ratio: 1; translate: -50% -50%; z-index: 1; opacity: 0; scale: .3; pointer-events: none; }
+.ln .ln-moon .disc { position: absolute; inset: 0; border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 38%, #b0102055 0 9%, #0000 10%),
+    radial-gradient(circle at 62% 30%, #b0102044 0 6%, #0000 7%),
+    radial-gradient(circle at 58% 64%, #b0102050 0 12%, #0000 13%),
+    radial-gradient(circle at 28% 66%, #b0102033 0 5%, #0000 6%),
+    radial-gradient(circle at 40% 35%, #ffb0a0 0%, #ff4a4a 30%, #e0101e 62%, #8a0010 100%);
+  box-shadow: 0 0 calc(var(--mr) * .35) #ff2a3a, 0 0 calc(var(--mr) * 1.1) #ff0018aa, 0 0 calc(var(--mr) * 2.4) #ff001855, inset calc(var(--mr) * -.2) calc(var(--mr) * -.15) calc(var(--mr) * .5) #5a000c88; }
+.ln .ln-moon .rays { position: absolute; inset: calc(var(--mr) * -1.1); border-radius: 50%; opacity: .55;
+  background: repeating-conic-gradient(from 0deg, #ff2a3a33 0 4deg, #0000 4deg 15deg);
+  -webkit-mask: radial-gradient(circle, #0000 30%, #000 42%, #0000 72%); mask: radial-gradient(circle, #0000 30%, #000 42%, #0000 72%);
+  animation: lnRays 9s linear infinite; }
+@keyframes lnRays { to { rotate: 360deg; } }
+.ln.ln-howl .ln-moon { opacity: 1; scale: 1; transition: opacity calc(var(--k) * .25s) ease-out, scale calc(var(--k) * .55s) cubic-bezier(.2,1.3,.4,1);
+  animation: lnMoonFlare calc(var(--k) * 1.1s) ease-out; }
+@keyframes lnMoonFlare { 0% { filter: brightness(2.2) saturate(.6); } 35% { filter: brightness(1.5); } 100% { filter: none; } }
+/* คลื่นเสียงหอน: วงโค้งสีแดงขยายขึ้นไปทางพระจันทร์ */
+.ln .ln-waves { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.ln .ln-waves i { position: absolute; left: 0; top: 0; width: calc(var(--d) * 1.2); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; opacity: 0;
+  border: .22em solid #ff5a6a; border-left-color: #0000; border-bottom-color: #0000; rotate: -45deg; filter: drop-shadow(0 0 6px #ff1a2e); }
+.ln.ln-howl .ln-waves i { animation: lnWave calc(var(--k) * .9s) ease-out forwards; }
+.ln.ln-howl .ln-waves i:nth-child(2) { animation-delay: calc(var(--k) * .18s); }
+.ln.ln-howl .ln-waves i:nth-child(3) { animation-delay: calc(var(--k) * .36s); }
+@keyframes lnWave { 0% { opacity: 1; scale: .3; } 100% { opacity: 0; scale: 2.6; } }
+.ln .ln-title { z-index: 6; }
+.ln .ln-title b { color: #ffd0d6; text-shadow: 0 0 .3em #ff1a2e, 0 .06em 0 #5a000c, 0 .1em 0 #000; }
+
+/* Loona: ตอนจบ พระจันทร์จางหายพร้อมเงาและคลื่นเสียง (กฎ ln-howl ด้านบนเขียนทีหลังเลยต้องระบุให้เฉพาะกว่า) */
+.ln.ln-howl.ln-fade .ln-moon { opacity: 0; scale: 1.08; transition: opacity calc(var(--k) * .45s) ease-in, scale calc(var(--k) * .45s) ease-in; }
+.ln.ln-fade .ln-waves { opacity: 0; transition: opacity calc(var(--k) * .3s); }
+/* Loona โผล่ขึ้นมาในช่องหลังเงาหายไป: เด้งขึ้นพร้อมวงแสงแดง */
+.ln.ln-landed .ln-unit { animation: lnPop calc(var(--k) * .55s) ease-out; }
+@keyframes lnPop { 0% { box-shadow: 0 0 0 0 #ff2a3a, 0 0 2.5em #ff1a2e; } 100% { box-shadow: 0 0 0 1.2em #ff2a3a00, 0 0 1em #ff2d55; } }
+
+/* ชี้การ์ดในมือ: หน้าการ์ดใหญ่ขึ้นเหนือการ์ด + ผลที่จะได้ถ้าเล่นตอนนี้ (เช่น Time Loop) */
+#cardTip .tip-main.big .card { font-size: 22px; }
+#cardTip .tip-preview .tip-empty { margin: 0; font-size: .85em; color: var(--muted); }
+#cardTip .tip-preview + * h4, #cardTip .tip-preview + .combo-hint { margin-top: 10px; }
+#cardTip .tip-preview .tip-combos { gap: 10px 8px; padding: 4px 2px 8px; }
+#cardTip .tip-preview .tip-combos .card { font-size: 9px; }
+#cardTip .tip-preview h4 { max-width: 24em; }
+
+/* ============================ Striker: ไฟลุก → ควบม้าไฟผุดขึ้นจากเปลวไฟ → โผล่ในช่อง ============================ */
+.legend-stage.lg-striker.sk { background: none; animation: none; }
+.sk .sk-dim { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 60%, #3a1006cc, #140503ee 60%, #060102f5); transition: opacity calc(var(--k) * .35s) ease-out; }
+.sk.sk-dark .sk-dim { opacity: 1; }
+.sk.sk-fade .sk-dim { opacity: .5; transition-duration: calc(var(--k) * .45s); }
+/* แสงไฟเรืองบนพื้นใต้ช่อง */
+.sk .sk-glow { position: absolute; width: calc(var(--d) * 4); height: calc(var(--d) * 1.3); translate: -50% -50%; z-index: 1; opacity: 0; pointer-events: none;
+  border-radius: 50%; background: radial-gradient(ellipse, #ffb04a 0%, #ff5a1a88 35%, #ff2a0a33 60%, #0000 72%); mix-blend-mode: screen; }
+.sk.sk-burn .sk-glow { opacity: 1; transition: opacity calc(var(--k) * .25s); animation: skGlow calc(var(--k) * .5s) ease-in-out infinite alternate; }
+.sk.sk-fade .sk-glow { opacity: 0; transition: opacity calc(var(--k) * .45s); animation: none; }
+@keyframes skGlow { to { filter: brightness(1.3); scale: 1.06 1; } }
+/* คลิปม้า: ผุดขึ้นจากใต้พื้น (ขอบล่างจางเหมือนโผล่จากเปลวไฟ) ขอบซ้าย/ขวา/บนจางไม่ให้เห็นรอยตัดของวิดีโอ */
+.sk .sk-ride { position: absolute; translate: -50% -50%; z-index: 2; opacity: 0; pointer-events: none;
+  -webkit-mask: linear-gradient(#0000, #000 6%, #000 90%, #0000), linear-gradient(90deg, #0000, #000 5%, #000 95%, #0000);
+  -webkit-mask-composite: source-in; mask: linear-gradient(#0000, #000 6%, #000 90%, #0000), linear-gradient(90deg, #0000, #000 5%, #000 95%, #0000);
+  mask-composite: intersect; filter: drop-shadow(0 0 .6em #ff6a1a88); }
+.sk .sk-ride img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.sk.sk-rise .sk-ride { opacity: 1; animation: skRise calc(var(--k) * .55s) cubic-bezier(.2,.9,.3,1) both; }
+@keyframes skRise { 0% { translate: -50% -15%; opacity: 0; filter: brightness(3) drop-shadow(0 0 1em #ff8a2a); } 40% { opacity: 1; }
+  100% { translate: -50% -50%; filter: drop-shadow(0 0 .6em #ff6a1a88); } }
+.sk.sk-rear .sk-ride { filter: drop-shadow(0 0 .9em #ff8a2acc) drop-shadow(0 0 2.2em #ff3a0a66); }
+.sk.sk-fade .sk-ride { opacity: 0; transition: opacity calc(var(--k) * .4s) ease-in; }
+/* ตัวมินเนี่ยน: ซ่อนไว้จนภาพม้าหายไป แล้วโผล่พร้อมวงไฟ */
+.sk .sk-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 4;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #ff7a1a; }
+.sk .sk-unit .art { width: 100%; height: 100%; }
+.sk.sk-landed .sk-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .25s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s);
+  animation: skPop calc(var(--k) * .55s) ease-out; }
+@keyframes skPop { 0% { box-shadow: 0 0 0 0 #ff8a2a, 0 0 2.5em #ff5a1a; } 100% { box-shadow: 0 0 0 1.2em #ff8a2a00, 0 0 1em #ff7a1a; } }
+/* คอมโบ Stella: เป้าที่ถูกจ้างฆ่าขึ้นเป้าเล็งสีแดง */
+.unit.sk-marked { box-shadow: 0 0 0 .22em #ff2a2a, 0 0 1.4em #ff0000; }
+.unit.sk-marked::after { content: '🎯'; position: absolute; left: 50%; top: 50%; translate: -50% -50%; font-size: 2.2em; z-index: 6; pointer-events: none;
+  animation: skMark .26s ease-out; }
+@keyframes skMark { from { scale: 2.2; opacity: 0; } to { scale: 1; opacity: 1; } }
+.sk .sk-title { z-index: 6; }
+.sk .sk-title b { color: #ffd27a; text-shadow: 0 0 .3em #ff5a1a, 0 .06em 0 #5a1a00, 0 .1em 0 #000; }
+
+/* ============================ Barbie Wire: ลวดหนามพันเกราะ ============================ */
+.legend-stage.lg-barbie_wire.bw { background: none; animation: none; }
+.bw .bw-dim { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, #2a0c1a55, #0c030690 75%); transition: opacity calc(var(--k) * .3s); }
+/* กระทืบพื้น: วงแรงกระแทก + ฝุ่นจาง ๆ (เล็กกว่า ground-slam จะได้ไม่บังเป้า) */
+.bw .bw-stomp { position: absolute; width: calc(var(--d) * 2.4); height: calc(var(--d) * .6); translate: -50% -50%; z-index: 2; border-radius: 50%; opacity: 0; pointer-events: none;
+  border: .2em solid #ffd6ea; box-shadow: 0 0 .8em #ff4f9a, inset 0 0 .8em #ffd6ea88; }
+.bw.bw-landed .bw-stomp { animation: bwStompRing calc(var(--k) * .5s) ease-out forwards; }
+@keyframes bwStompRing { 0% { opacity: 1; scale: .3; } 100% { opacity: 0; scale: 1.4; } }
+.bw.bw-landed .bw-dim { opacity: 1; }
+.bw.bw-fade .bw-dim { opacity: .4; transition-duration: calc(var(--k) * .4s); }
+.bw .bw-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 4;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; scale: .6; box-shadow: 0 0 1em #ff4f9a; }
+.bw .bw-unit .art { width: 100%; height: 100%; }
+.bw.bw-landed .bw-unit { opacity: 1; scale: 1; transition: scale calc(var(--k) * .22s) cubic-bezier(.3,1.8,.5,1), opacity calc(var(--k) * .1s);
+  animation: bwStomp calc(var(--k) * .35s) ease-out; }
+@keyframes bwStomp { 0% { translate: -50% -80%; } 55% { translate: -50% -46%; scale: 1.08 .9; } 100% { translate: -50% -50%; scale: 1; } }
+/* ลวดหนาม: เส้นเงินมีขอบดำ หนามเป็นกากบาท วาดตามเส้นด้วย stroke-dashoffset */
+.bw .bw-svg { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; overflow: visible;
+  filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 5px #ff4f9a66); }
+.bw .bw-svg path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.bw .bw-svg .under { stroke: #1a1a22; stroke-width: max(2.6px, calc(var(--d) * .05)); }
+.bw .bw-svg .wire { stroke: #d9dce6; stroke-width: max(1.3px, calc(var(--d) * .025)); }
+.bw .bw-svg .under, .bw .bw-svg .wire { stroke-dasharray: 100; stroke-dashoffset: 100; }
+.bw .bw-svg .barb { stroke: #eef0f6; stroke-width: max(1px, calc(var(--d) * .018)); opacity: 0; filter: drop-shadow(0 0 1px #000); }
+.bw.bw-lashing .bw-lash .under, .bw.bw-lashing .bw-lash .wire { animation: bwDraw calc(var(--k) * .36s) cubic-bezier(.3,.6,.4,1) forwards; }
+.bw.bw-lashing .bw-lash .barb { animation: bwBarb calc(var(--k) * .12s) ease-out calc(var(--k) * .36s * var(--i) / 8) forwards; }
+.bw.bw-coiling .bw-coil .under, .bw.bw-coiling .bw-coil .wire { animation: bwDraw calc(var(--k) * .46s) linear forwards; }
+.bw.bw-coiling .bw-coil .barb { animation: bwBarb calc(var(--k) * .12s) ease-out calc(var(--k) * .46s * var(--i) / 10) forwards; }
+.bw.bw-twinning .bw-twin .under, .bw.bw-twinning .bw-twin .wire { animation: bwDraw calc(var(--k) * .34s) cubic-bezier(.3,.6,.4,1) forwards; }
+.bw.bw-twinning .bw-twin .barb { animation: bwBarb calc(var(--k) * .12s) ease-out calc(var(--k) * .34s * var(--i) / 8) forwards; }
+@keyframes bwDraw { to { stroke-dashoffset: 0; } }
+@keyframes bwBarb { from { opacity: 0; } to { opacity: 1; } }
+/* รัดแน่น: เกลียวหดเข้าหาตัวแล้ววาบขาว */
+.bw .bw-coil { transform-box: fill-box; transform-origin: center; }
+.bw.bw-tight .bw-coil { animation: bwTight calc(var(--k) * .2s) ease-in forwards; }
+@keyframes bwTight { 0% { scale: 1; } 60% { scale: .86 .9; filter: brightness(2); } 100% { scale: .92; filter: brightness(1.3); } }
+.bw.bw-fade .bw-svg { opacity: 0; transition: opacity calc(var(--k) * .35s) ease-in; }
+/* โล่สีเงิน (Taunt) */
+.bw .bw-shield { position: absolute; translate: -50% -50%; z-index: 2; border-radius: 50%; opacity: 0; scale: 1.5; pointer-events: none;
+  border: .32em solid #cfd3de; box-shadow: 0 0 0 .14em #4a4e5a, 0 0 1.2em #e6e9f2aa, inset 0 0 1.2em #e6e9f288;
+  display: grid; place-items: start center; }
+.bw .bw-shield b { font-size: calc(var(--d) * .32); translate: 0 -55%; filter: drop-shadow(0 0 4px #fff); }
+.bw.bw-armor .bw-shield { opacity: 1; scale: 1; transition: opacity calc(var(--k) * .15s), scale calc(var(--k) * .3s) cubic-bezier(.3,1.6,.5,1); }
+.bw.bw-fade .bw-shield { opacity: 0; scale: .9; transition: opacity calc(var(--k) * .35s), scale calc(var(--k) * .35s); }
+/* หยดเลือด (Lifesteal): ลอยออกแล้ววนกลับเข้าตัว */
+.bw .bw-drops { position: absolute; width: 0; height: 0; z-index: 3; pointer-events: none; }
+.bw .bw-drops i { position: absolute; left: 0; top: 0; width: calc(var(--d) * .12); aspect-ratio: .75; translate: -50% -50%; opacity: 0;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%; background: radial-gradient(circle at 40% 60%, #ff7080, #d0102a 55%, #6a0010);
+  box-shadow: 0 0 6px #ff1a3a; }
+.bw.bw-armor .bw-drops i { animation: bwDrop calc(var(--k) * .7s) cubic-bezier(.4,0,.6,1) var(--dl) forwards; }
+@keyframes bwDrop { 0% { opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--r) * -.4)) scale(.4); }
+  30% { opacity: 1; transform: rotate(calc(var(--a) + 40deg)) translateY(calc(var(--r) * -1)) scale(1); }
+  100% { opacity: 0; transform: rotate(calc(var(--a) + 200deg)) translateY(0) scale(.3); } }
+/* เป้าที่ถูกพัน (มินเนี่ยนจริงบนบอร์ด) */
+.unit.bw-target { box-shadow: 0 0 0 .18em #d9dce6, 0 0 1.2em #ff4f9a; }
+/* คอมโบฝาแฝด: Barbie กับ Blitzø วาบพร้อมกัน */
+.bw .bw-twinflash { position: absolute; width: calc(var(--d) * 1.5); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; z-index: 5; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, #fff 0%, #ffd0e6aa 30%, #ff4f9a55 55%, #0000 70%); }
+.bw.bw-twinflash-on .bw-twinflash { animation: bwTwin calc(var(--k) * .45s) ease-out; }
+@keyframes bwTwin { 0% { opacity: 0; scale: .4; } 30% { opacity: 1; scale: 1.15; } 100% { opacity: 0; scale: 1.5; } }
+.bw .bw-title { z-index: 6; }
+.bw .bw-title b { color: #ffd6ea; text-shadow: 0 0 .3em #ff4f9a, 0 .06em 0 #5a0c2a, 0 .1em 0 #000; }
+
+/* ============================ Fizzarolli: สปอตไลต์ + เวทีละครสัตว์ + กระเด้งออกมาพร้อมกระดาษสี ============================ */
+.legend-stage.lg-fizzarolli.fz { background: none; animation: none; }
+/* มืดลงเล็กน้อย ยกเว้นวงแสงรอบช่อง */
+.fz .fz-dim { position: absolute; inset: 0; z-index: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse calc(var(--d) * 2.2) calc(var(--d) * 2.6) at var(--lx) calc(var(--feet) - var(--d) * .6), #0000 0%, #0000 45%, #07020599 100%);
+  transition: opacity calc(var(--k) * .3s); }
+.fz.fz-dark .fz-dim { opacity: 1; }
+/* สปอตไลต์: ลำแสงทรงสี่เหลี่ยมคางหมูจากขอบบนลงมาที่ช่อง */
+.fz .fz-spot { position: absolute; left: calc(var(--lx) - var(--d) * 1.5); top: 0; width: calc(var(--d) * 3); height: var(--feet); z-index: 1; pointer-events: none;
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); opacity: 0; transform-origin: 50% 0; scale: .2 1;
+  background: linear-gradient(#fff6d000, #fff2c066 35%, #ffe8a088 100%); mix-blend-mode: screen; filter: blur(2px); }
+.fz.fz-light .fz-spot { opacity: 1; scale: 1 1; transition: opacity calc(var(--k) * .2s), scale calc(var(--k) * .35s) cubic-bezier(.2,1.2,.4,1);
+  animation: fzFlicker calc(var(--k) * 1.6s) ease-in-out calc(var(--k) * .4s) infinite alternate; }
+@keyframes fzFlicker { 50% { filter: blur(2px) brightness(1.15); } }
+.fz .fz-pool { position: absolute; width: calc(var(--d) * 3); height: calc(var(--d) * .9); translate: -50% -50%; z-index: 1; border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse, #fff6d0aa 0%, #ffe8a055 45%, #0000 70%); mix-blend-mode: screen; }
+.fz.fz-light .fz-pool { opacity: 1; transition: opacity calc(var(--k) * .3s) calc(var(--k) * .15s); }
+/* เวทีละครสัตว์: กลองกลมลายแดงขาว ขอบทอง (ด้านบนเป็นวงรี ลายรัศมี) */
+.fz .fz-stage { position: absolute; width: calc(var(--d) * 2.2); height: calc(var(--d) * .9); translate: -50% -32%; z-index: 2; pointer-events: none;
+  transform-origin: 50% 100%; scale: 1 0; opacity: 0; }
+.fz .fz-stage .side { position: absolute; left: 0; right: 0; top: 30%; bottom: 0; border-radius: 0 0 50% 50% / 0 0 40% 40%;
+  background: repeating-linear-gradient(90deg, #d8142a 0 12%, #fff4f4 12% 24%), #d8142a; box-shadow: inset 0 -.6em .8em #0006, 0 .4em .8em #0008; }
+.fz .fz-stage .top { position: absolute; left: 0; right: 0; top: 0; height: 60%; border-radius: 50%;
+  background: radial-gradient(ellipse, #fff8 0 10%, #0000 30%), repeating-conic-gradient(from 0deg, #e8203a 0 15deg, #fff4f4 15deg 30deg); }
+.fz .fz-stage .rim { position: absolute; left: -2%; right: -2%; top: -3%; height: 66%; border-radius: 50%; border: .18em solid #ffcc33; box-shadow: 0 0 .6em #ffcc33aa; }
+.fz.fz-set .fz-stage { opacity: 1; scale: 1 1; transition: scale calc(var(--k) * .4s) cubic-bezier(.2,1.5,.4,1), opacity calc(var(--k) * .1s); }
+/* ธงราว */
+.fz .fz-bunting { position: absolute; z-index: 1; pointer-events: none; opacity: 0; translate: 0 -30%; }
+.fz .fz-bunting svg { display: block; overflow: visible; filter: drop-shadow(0 .15em .2em #0008); }
+.fz .fz-bunting .rope { fill: none; stroke: #2a1a10; stroke-width: 1.5; }
+.fz.fz-set .fz-bunting { opacity: 1; translate: 0 0; transition: opacity calc(var(--k) * .2s), translate calc(var(--k) * .45s) cubic-bezier(.3,1.6,.5,1); }
+.fz.fz-set .fz-bunting .flags path { transform-box: fill-box; transform-origin: 50% 0; animation: fzFlag calc(var(--k) * 1s) ease-in-out calc(var(--k) * .05s * var(--i)) infinite alternate; }
+@keyframes fzFlag { from { rotate: -6deg; } to { rotate: 6deg; } }
+/* Fizzarolli: ซ่อนในเวที แล้วกระเด้งพุ่งขึ้น (ยืด) ลอยหมุน แล้วตกลงเด้ง 2 ที (หด) ลงช่อง */
+.fz .fz-unit { position: absolute; width: var(--d); height: var(--d); translate: -50% -50%; border-radius: 50%; overflow: hidden; z-index: 4;
+  border: .25em solid #ffc02e; background: #1d0a0d; opacity: 0; box-shadow: 0 0 1em #ffcc33; }
+.fz .fz-unit .art { width: 100%; height: 100%; }
+.fz.fz-pop .fz-unit { opacity: 1; animation: fzPop calc(var(--k) * .8s) linear forwards; }
+@keyframes fzPop {
+  0%   { transform: translateY(calc(var(--d) * .4)) scale(.2, .2); animation-timing-function: cubic-bezier(.2,.8,.4,1); }
+  12%  { transform: translateY(calc(var(--d) * -.4)) scale(.8, 1.25); }
+  35%  { transform: translateY(calc(var(--d) * -1.5)) scale(1) rotate(360deg); animation-timing-function: cubic-bezier(.6,0,1,.6); }
+  58%  { transform: translateY(0) scale(1.18, .8) rotate(360deg); animation-timing-function: cubic-bezier(.2,.8,.4,1); }
+  72%  { transform: translateY(calc(var(--d) * -.45)) scale(.94, 1.08) rotate(360deg); animation-timing-function: cubic-bezier(.6,0,1,.6); }
+  86%  { transform: translateY(0) scale(1.08, .92) rotate(360deg); }
+  93%  { transform: translateY(calc(var(--d) * -.1)) scale(1) rotate(360deg); }
+  100% { transform: translateY(0) scale(1) rotate(360deg); } }
+.fz.fz-fade .fz-spot, .fz.fz-fade .fz-pool, .fz.fz-fade .fz-stage, .fz.fz-fade .fz-bunting, .fz.fz-fade .fz-dim { opacity: 0; transition: opacity calc(var(--k) * .4s) ease-in; }
+.fz .fz-title { z-index: 6; }
+.fz .fz-title b { color: #ffe066; text-shadow: 0 0 .3em #f53cd1, 0 .06em 0 #6a0c4a, 0 .1em 0 #000; }
+
+/* ช่องว่างที่เว้นไว้ให้การ์ดตำนานระหว่างฉากเปิดตัว: ค่อย ๆ ขยายดันมินเนี่ยนตัวอื่นออก (มองไม่เห็นตัวช่อง) */
+.unit.slot-reserve { visibility: hidden; pointer-events: none; animation: slotGrow var(--grow, 280ms) ease-out both; }
+.unit.slot-reserve.ready { animation: none; }
+@keyframes slotGrow { from { width: 0; margin-left: -.6em; margin-right: -.6em; } }
+
+/* หน้าต่างดูเด็ค: สรุปจำนวน + กราฟค่าร่าย */
+.modal-box .deck-stats { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin: 4px 0 12px; font-size: .9em; color: var(--muted); }
+.modal-box .deck-stats span b { color: #fff; }
+.modal-box .deck-curve { flex-basis: 100%; max-width: 420px; }
+
+/* ============================ เปลี่ยนการ์ดมือแรก (mulligan) ============================ */
+.mull { position: fixed; inset: 0; z-index: 280; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(ellipse at 50% 45%, #2a0b12e6, #050103f2 75%); animation: popIn .25s ease-out; }
+.mull.closing { opacity: 0; transition: opacity .3s ease-in; }
+.mull-box { text-align: center; max-width: min(1100px, 96vw); }
+.mull-box h2 { margin: 0 0 .2em; color: var(--gold); font-size: 1.8em; text-shadow: 0 0 .4em #ff2d55; }
+.mull-box p { margin: 0 0 1em; color: #e8d6da; }
+.mull-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 16px; margin: 0 0 1em; padding-top: 10px; }
+.mull-cards .card { font-size: clamp(12px, 1.9vh, 17px); cursor: pointer; transition: transform .15s, filter .15s, box-shadow .15s; }
+.mull-cards .card:hover { transform: translateY(-8px); box-shadow: 0 0 1.2em #ff2d5588; }
+.mull-cards .card .mull-tag { position: absolute; left: 50%; top: 42%; translate: -50% -50%; z-index: 6; opacity: 0; pointer-events: none; white-space: nowrap;
+  font-weight: 800; font-size: 1.05em; color: #fff; background: #b0102acc; border: 2px solid #ff8a9a; border-radius: .6em; padding: .2em .7em;
+  box-shadow: 0 0 .8em #ff2d55; transition: opacity .15s, scale .15s; scale: .7; }
+.mull-cards .card.mull-out { transform: translateY(10px) rotate(-3deg); box-shadow: 0 0 0 .2em #ff4f6a88; }
+.mull-cards .card.mull-out > :not(.mull-tag) { filter: grayscale(.85) brightness(.5); }
+.mull-cards .card.mull-out .mull-tag { opacity: 1; scale: 1; }
+.mull-cards .card.mull-lock { cursor: default; opacity: .8; }
+.mull-cards .card.mull-lock:hover { transform: none; box-shadow: none; }
+.mull-info { color: var(--muted); font-size: .9em; margin-bottom: 1em; }
+
+/* เลขดาเมจบนการ์ดเวทที่เพิ่มจากพลังเวท: *เลข* สีเขียวสว่าง */
+.card .ctext .sd-up { color: #7dff9a; text-shadow: 0 0 4px #2bff5a88; font-weight: 800; }
+
+/* ============================ สมบัติยิงสุ่ม: ป้ายชื่อสมบัติเด้งเหนือฮีโร่ ============================ */
+.relic-pop { position: fixed; z-index: 270; pointer-events: none; translate: -50% -100%; white-space: nowrap;
+  font-weight: 800; font-size: 13px; color: #ffe6a0; background: #1a0a06ee; border: 1.5px solid #ffcc33; border-radius: 10px; padding: 2px 9px;
+  box-shadow: 0 0 10px #ffcc3388; animation: relicPop var(--dur) ease-out forwards; }
+@keyframes relicPop { 0% { opacity: 0; scale: .5; } 15% { opacity: 1; scale: 1.1; } 25% { scale: 1; } 75% { opacity: 1; translate: -50% -130%; } 100% { opacity: 0; translate: -50% -160%; } }
+
+/* ============================ การ์ด "เมื่อจั่ว": บินออกจากเด็คแล้วระเบิด ============================ */
+.fly2 .card.cursed-draw, .fly-card .card.cursed-draw { box-shadow: 0 0 1.6em #ff2a2a, 0 0 .4em #ffcc33, 0 .3em .9em #000a; animation: curseShake .12s linear infinite; }
+.fly2 .card.soul-draw, .fly-card .card.soul-draw { box-shadow: 0 0 1.6em #8fe3ff, 0 .3em .9em #000a; }
+@keyframes curseShake { 25% { translate: 1px -1px; } 50% { translate: -1px 1px; } 75% { translate: 1px 1px; } }
+.draw-burst { position: fixed; width: 150px; height: 150px; translate: -50% -50%; z-index: 300; pointer-events: none; border-radius: 50%; opacity: 0;
+  animation: drawBurst var(--dur) ease-out forwards; }
+.draw-burst.curse { background: radial-gradient(circle, #fff6d0 0%, #ffb03a 25%, #ff2a1a88 50%, #0000 70%); }
+.draw-burst.curse::after { content: '💣'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 44px; animation: bombPulse calc(var(--dur) * .6) ease-in-out; }
+.draw-burst.soul { background: radial-gradient(circle, #ffffff 0%, #bff0ff 25%, #5ac8ff66 50%, #0000 70%); }
+.draw-burst.soul::after { content: '👻'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
+@keyframes drawBurst { 0% { opacity: 0; scale: .4; } 30% { opacity: 1; scale: 1; } 70% { opacity: 1; scale: 1.15; } 100% { opacity: 0; scale: 1.6; } }
+@keyframes bombPulse { 0%, 100% { scale: 1; } 50% { scale: 1.4; } }
