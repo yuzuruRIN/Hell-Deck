@@ -132,6 +132,39 @@ function relatedHTML(c) {
 /* ---------- ป๊อปอัปตอนชี้การ์ดค้างไว้: คำอธิบาย + การ์ดที่ถูกสับเข้าเด็ค / สร้างขึ้น + ที่มาของบัฟ ----------
    ทุก element ที่มี data-cid ใช้ได้ / data-tip="card" = แสดงภาพการ์ดด้วย (เช่น ประวัติการเล่น)
    ไม่บอกว่าการ์ดไหนคอมโบกับการ์ดไหน — ให้ผู้เล่นค้นพบเองจากข้อความบนการ์ด */
+/* ---------- ป๊อปอัปธีมเกม (แทน alert / confirm ของเบราว์เซอร์) ----------
+   gameModal({ title, html, buttons: [{ label, value, primary }], cls }) → Promise(value ของปุ่มที่กด / null = ปิด)
+   Esc หรือคลิกนอกกล่อง = ปุ่มสุดท้ายที่ไม่ใช่ primary (หรือ null) */
+function gameModal({ title = '', html = '', buttons = [{ label: 'ตกลง', value: true, primary: true }], cls = '' } = {}) {
+  return new Promise(res => {
+    const m = document.createElement('div');
+    m.className = `gmodal ${cls}`;
+    m.innerHTML = `<div class="gmodal-box" role="dialog" aria-modal="true">
+      ${title ? `<h2>${title}</h2>` : ''}<div class="gmodal-body">${html}</div>
+      <div class="gmodal-btns">${buttons.map((b, i) => `<button class="btn ${b.primary ? 'primary' : 'ghost'}" data-gm="${i}">${b.label}</button>`).join('')}</div>
+    </div>`;
+    const cancelVal = (() => { const b = [...buttons].reverse().find(x => !x.primary); return b ? b.value : null; })();
+    const done = v => { document.removeEventListener('keydown', key, true); m.classList.add('closing'); setTimeout(() => m.remove(), 160); res(v); };
+    const key = e => {
+      if (e.key === 'Escape') { e.stopPropagation(); done(cancelVal); }
+      else if (e.key === 'Enter') { const p = buttons.findIndex(b => b.primary); if (p >= 0) { e.preventDefault(); done(buttons[p].value); } }
+    };
+    m.addEventListener('click', e => {
+      const b = e.target.closest('[data-gm]');
+      if (b) done(buttons[+b.dataset.gm].value);
+      else if (e.target === m) done(cancelVal);
+    });
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(m);
+    CardTip.hide();
+    m.querySelector('.btn.primary')?.focus();
+  });
+}
+// ถามยืนยัน: คืน true/false
+const gameConfirm = (title, text, okLabel = 'ตกลง', cancelLabel = 'ยกเลิก', danger = false) =>
+  gameModal({ title, html: `<p>${text}</p>`, cls: danger ? 'danger' : '',
+    buttons: [{ label: cancelLabel, value: false }, { label: okLabel, value: true, primary: true }] });
+
 // keyword ที่มินเนี่ยนบนบอร์ดมีอยู่ตอนนี้ (รวมที่ได้มาระหว่างเกม) แสดงเป็นแถบไอคอนบนการ์ดในป๊อปอัป
 function liveKwHTML(m) {
   const ks = Object.keys(m.kw || {}).filter(k => m.kw[k] && KEYWORDS[k]);
@@ -376,9 +409,12 @@ const BattleUI = {
       sideCollapsed(on);
       CardTip.hide();
     };
-    $('#bConcede').onclick = () => {
-      if (this.g.over || !confirm('ยอมแพ้การต่อสู้นี้? (รันจะจบลง)')) return;
-      this.g.hero(0).hp = 0; this.g.checkOver(); this.render();
+    $('#bConcede').onclick = async () => {
+      if (this.g.over) return;
+      const g = this.g;
+      if (!(await gameConfirm('🏳️ ยอมแพ้?', 'ยอมแพ้การต่อสู้นี้? <b>รันจะจบลง</b>', 'ยอมแพ้', 'สู้ต่อ', true))) return;
+      if (this.g !== g || g.over) return;
+      g.hero(0).hp = 0; g.checkOver(); this.render();
     };
     this.keyHandler = e => { if (e.key === 'Escape') { this.endCarry(null); this.cancel(); } };
     // จำการ์ดในมือที่ชี้อยู่ ไว้ยกค้างหลังวาดมือใหม่ (ดู render)
@@ -480,7 +516,7 @@ const BattleUI = {
     } else this.render();
   },
 
-  unmount() { document.querySelectorAll('.mull').forEach(e => e.remove()); document.removeEventListener('keydown', this.keyHandler); this.endCarry(null); this.hideDeckTip(); this.g = null; CardTip.hide(); },
+  unmount() { document.querySelectorAll('.mull, .fly2, .fly-card, .draw-burst, .relic-pop, .burn-fx, .oc-aura, .cleave-fx, .float, .ptc, .glow-ring').forEach(e => e.remove()); document.removeEventListener('keydown', this.keyHandler); this.endCarry(null); this.hideDeckTip(); this.g = null; CardTip.hide(); },
   wait(ms) { return wait(ms); },
 
   /* ---------- วาดหน้าจอ ---------- */
@@ -1353,6 +1389,15 @@ const BattleUI = {
     const k = SPEEDS[SPEED].k, now = performance.now();
     const start = Math.max(now + 120 * k, (this.fatigueAt || 0) + 1100 * k);
     this.fatigueAt = start;
+    // ผลของการ์ดโผล่หลังโชว์การ์ดเสร็จ: มินเนี่ยนที่ถูกเรียก (เช่น Soul Wisp ของ Lost Soul) ซ่อนไว้จนถึงตอนนั้น
+    // และการ์ดใบใหม่ที่จั่วแทนรอจนโชว์เสร็จค่อยบินขึ้นมือ
+    const reveal = start + 1080 * k;
+    const g = this.g;
+    if (g && h.id === 'lost_soul') {
+      const m = g.mins(o).filter(x => x.id === 'soul_wisp').pop();
+      if (m) this.enterAt[m.uid] = reveal;
+    }
+    this.lastDrawAt = Math.max(this.lastDrawAt || 0, reveal);
     setTimeout(() => this.playCastOnDraw(o, h, evs), start - now);
   },
   async playCastOnDraw(o, h, evs) {

@@ -1510,3 +1510,39 @@ code { background: #0007; padding: .1em .35em; border-radius: .3em; font-size: .
 .draw-burst.soul::after { content: '👻'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; }
 @keyframes drawBurst { 0% { opacity: 0; scale: .4; } 30% { opacity: 1; scale: 1; } 70% { opacity: 1; scale: 1.15; } 100% { opacity: 0; scale: 1.6; } }
 @keyframes bombPulse { 0%, 100% { scale: 1; } 50% { scale: 1.4; } }
+
+/* ============================ ป๊อปอัปธีมเกม (แทนป๊อปอัปเบราว์เซอร์) ============================ */
+.gmodal { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(ellipse at 50% 45%, #2a0b12cc, #050103e6 75%); animation: gmIn .18s ease-out; }
+.gmodal.closing { opacity: 0; transition: opacity .15s; }
+.gmodal-box { min-width: min(320px, 92vw); max-width: min(520px, 94vw); text-align: center; padding: 20px 22px 18px; border-radius: 16px;
+  background: linear-gradient(#2a0b12, #14050a); border: 2px solid var(--gold); box-shadow: 0 0 0 4px #ff2d5522, 0 18px 50px #000c, inset 0 0 30px #ff2d5518;
+  animation: gmPop .22s cubic-bezier(.3,1.5,.5,1); }
+.gmodal.danger .gmodal-box { border-color: #ff4f6a; box-shadow: 0 0 0 4px #ff2d5533, 0 18px 50px #000c, inset 0 0 30px #ff2d5528; }
+.gmodal-box h2 { margin: 0 0 .4em; color: var(--gold); font-size: 1.45em; text-shadow: 0 0 .4em #ff2d55; }
+.gmodal-body { color: #f0dde1; line-height: 1.5; }
+.gmodal-body p { margin: .3em 0; }
+.gmodal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.gmodal-btns .btn { min-width: 110px; }
+@keyframes gmIn { from { opacity: 0; } }
+@keyframes gmPop { from { scale: .8; opacity: 0; } }
+/* ได้สมบัติจากร้าน: การ์ดสมบัติใหญ่ เรืองแสงหมุน */
+.gmodal.relic-get .relic { margin: 6px auto 8px; font-size: 1.15em; animation: relicGet .6s cubic-bezier(.3,1.6,.5,1);
+  box-shadow: 0 0 0 .15em #ffcc33, 0 0 2em #ffcc3399; }
+@keyframes relicGet { 0% { scale: .3; rotate: -12deg; opacity: 0; } 100% { scale: 1; rotate: 0deg; opacity: 1; } }
+
+/* ============================ สรุปรัน (ชนะ / จบรัน) ============================ */
+.run-summary { max-width: 1100px; margin: 1.2em auto 0; text-align: left; }
+.run-summary .rs-head { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 1em; }
+.run-summary .rs-hero { width: 96px; height: 96px; border-radius: 50%; overflow: hidden; border: 3px solid var(--gold); box-shadow: 0 0 1em #ffcc3366; flex: none; }
+.run-summary .rs-hero .art { width: 100%; height: 100%; }
+.run-summary .rs-hero .art .emoji { font-size: 3em; }
+.run-summary .rs-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; color: #e8d6da; font-size: .95em; }
+.run-summary .rs-stats b { color: #fff; }
+.run-summary h3 { color: var(--gold); margin: 1em 0 .4em; text-align: center; }
+.run-summary .rs-bosses { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.run-summary .rs-boss { width: 54px; text-align: center; font-size: .72em; color: var(--muted); }
+.run-summary .rs-boss .art { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; border: 2px solid #5a2a35; }
+.run-summary .rs-boss.beat .art { border-color: #3dff6a; }
+.run-summary .rs-boss:not(.beat) .art { filter: grayscale(1) brightness(.5); }
+.run-summary .rs-boss .art .emoji { font-size: 1.6em; }

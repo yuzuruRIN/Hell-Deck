@@ -70,7 +70,10 @@ function showTitle() {
     </div>`, e => {
     const a = e.target.closest('[data-act]')?.dataset.act;
     if (a === 'continue') resumeRun();
-    else if (a === 'new') { if (!sv || confirm('เริ่มรันใหม่? รันที่บันทึกไว้จะหายไป')) showHeroSelect(); }
+    else if (a === 'new') {
+      if (!sv) showHeroSelect();
+      else gameConfirm('🔥 เริ่มรันใหม่?', 'รันที่บันทึกไว้จะ<b>หายไป</b>', 'เริ่มใหม่', 'ยกเลิก', true).then(ok => { if (ok) showHeroSelect(); });
+    }
     else if (a === 'collection') showCollection();
     else if (a === 'howto') showHowTo();
   });
@@ -369,9 +372,10 @@ function showShop(msg = '') {
     const id = e.target.closest('[data-buy]')?.dataset.buy;
     if (id) return buy(id);
     if (e.target.closest('[data-act="leave"]')) {
-      if (sh.gold > 0 && !confirm(`ยังเหลือ 🪙 ${sh.gold} เหรียญ ออกจากร้านเลยไหม? (เหรียญจะหายไป)`)) return;
-      RUN.shop = null;
-      nextStage();
+      const leave = () => { RUN.shop = null; nextStage(); };
+      if (sh.gold <= 0) return leave();
+      gameConfirm('🛒 ออกจากร้าน?', `ยังเหลือ 🪙 <b>${sh.gold}</b> เหรียญ — เหรียญที่เหลือ<b>จะหายไป</b>`, 'ออกเลย', 'ซื้อต่อ')
+        .then(ok => { if (ok && RUN.shop === sh) leave(); });
     }
   });
 }
@@ -396,7 +400,10 @@ function buy(id) {
       const r = rollRelics(1, RUN.relics)[0];
       if (!r) return showShop('มีสมบัติครบทุกชิ้นแล้ว!');
       pay(); RUN.relics.push(r); save();
-      return showShop(`🎁 ได้รับ ${RELICS[r].emoji} ${RELICS[r].name} — ${RELICS[r].text}`);
+      showShop(`🎁 ได้รับ ${RELICS[r].emoji} ${RELICS[r].name} — ${RELICS[r].text}`);
+      // โชว์สมบัติที่สุ่มได้ให้เห็นชัด ๆ ก่อน
+      return gameModal({ title: '🎁 ได้สมบัติใหม่!', cls: 'relic-get', html: `${relicHTML(RELICS[r])}<p class="muted">สมบัติติดตัวคุณไปตลอดรัน</p>`,
+        buttons: [{ label: 'เยี่ยม!', value: true, primary: true }] });
     }
     case 'anycard': {
       // เลือกการ์ดใบไหนก็ได้ในเกม (การ์ดที่สุ่มได้ทั้งหมด เรียงตามค่าร่าย)
@@ -452,14 +459,43 @@ function showDeckModal() {
 }
 
 /* ============================== จบเกม ============================== */
+// สรุปรัน: ฮีโร่ที่เล่น บอสที่ชนะ โบนัสถาวร สมบัติทั้งหมด และเด็คที่สร้างมา (ใช้ทั้งตอนชนะและตอนจบรัน)
+function runSummaryHTML(beaten) {
+  const h = HEROES[RUN.heroId], b = RUN.bonus || {};
+  const types = { minion: 0, spell: 0, trap: 0 };
+  RUN.deck.forEach(id => { types[CARDS[id].type]++; });
+  const avg = (RUN.deck.reduce((t, id) => t + CARDS[id].cost, 0) / Math.max(1, RUN.deck.length)).toFixed(1);
+  const legends = RUN.deck.filter(id => CARDS[id].rar === 'legendary').length;
+  const perks = [b.armor ? `🛡️ เกราะเริ่มต้น +${b.armor}` : '', b.draw ? `✋ จั่วเริ่มต้น +${b.draw}` : '', b.mana ? `💎 มานาเริ่มต้น +${b.mana}` : ''].filter(Boolean);
+  return `<div class="run-summary">
+    <div class="rs-head">
+      <div class="rs-hero">${artHTML('heroes', h.id, h.emoji)}</div>
+      <div>
+        <h2 style="margin:0">${h.name} <small class="muted">— ${h.title}</small></h2>
+        <div class="rs-stats">
+          <span>⚔️ ชนะบอส <b>${beaten}</b>/${BOSSES.length}</span><span>❤️ HP สูงสุด <b>${playerMaxHp()}</b></span>
+          <span>🃏 เด็ค <b>${RUN.deck.length}</b> ใบ</span><span>😈 ${types.minion} • ✨ ${types.spell}${types.trap ? ` • 🪤 ${types.trap}` : ''}</span>
+          <span>💎 ค่าร่ายเฉลี่ย <b>${avg}</b></span><span>🌟 ตำนาน <b>${legends}</b> ใบ</span>${perks.map(x => `<span>${x}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    <h3>👹 เส้นทางบอส</h3>
+    <div class="rs-bosses">${BOSSES.map((bo, i) => `<div class="rs-boss ${i < beaten ? 'beat' : ''}" title="${bo.name}">${artHTML('bosses', bo.id, bo.emoji)}${bo.name.split(' ')[0]}</div>`).join('')}</div>
+    <h3>🎁 สมบัติ (${RUN.relics.length})</h3>
+    <div class="relic-grid small">${RUN.relics.map(id => relicHTML(RELICS[id])).join('') || '<p class="muted center">ไม่มีสมบัติ</p>'}</div>
+    <h3>🃏 เด็คที่สร้างมา (${RUN.deck.length} ใบ)</h3>
+    <div class="deck-curve" style="max-width:420px;margin:0 auto 10px">${manaCurveHTML(RUN.deck)}</div>
+    <div class="card-grid small">${deckSummary(RUN.deck).map(([id, n]) => cardHTML(CARDS[id], { extra: n > 1 ? `<div class="count">×${n}</div>` : '' })).join('')}</div>
+  </div>`;
+}
 function showGameOver(reached) {
   const b = BOSSES[reached];
   setScreen(`
     <div class="screen end-screen lose">
       <h1>💀 จบรัน</h1>
-      <p>คุณพ่ายแพ้ให้กับ <b>${b.name}</b> (บอสที่ ${reached + 1}/8)</p>
-      <p class="muted">ชนะบอสไปทั้งหมด ${reached} ตัว • เด็คสุดท้าย ${RUN.deck.length} ใบ • สมบัติ ${RUN.relics.length} ชิ้น</p>
+      <p>คุณพ่ายแพ้ให้กับ <b>${b.name}</b> (บอสที่ ${reached + 1}/${BOSSES.length})</p>
       <div class="menu"><button class="btn primary big" data-act="again">🔥 ลองใหม่</button><button class="btn" data-act="menu">เมนูหลัก</button></div>
+      ${runSummaryHTML(reached)}
     </div>`, e => {
     const a = e.target.closest('[data-act]')?.dataset.act;
     if (a === 'again') showHeroSelect(); else if (a === 'menu') showTitle();
@@ -469,11 +505,13 @@ function showVictory() {
   setScreen(`
     <div class="screen end-screen win">
       <h1>🏆 พิชิตนรกสำเร็จ!</h1>
-      <p>${HEROES[RUN.heroId].name} เอาชนะบอสทั้ง 8 ตัวได้แล้ว รวมถึง Satan!</p>
-      <p class="muted">เด็คสุดท้าย ${RUN.deck.length} ใบ • สมบัติ ${RUN.relics.length} ชิ้น</p>
-      <div class="relic-grid small">${RUN.relics.map(id => relicHTML(RELICS[id], { compact: true })).join('')}</div>
-      <div class="menu"><button class="btn primary big" data-act="menu">เมนูหลัก</button></div>
-    </div>`, e => { if (e.target.closest('[data-act="menu"]')) showTitle(); });
+      <p>${HEROES[RUN.heroId].name} เอาชนะบอสทั้ง ${BOSSES.length} ตัวได้แล้ว รวมถึง Satan!</p>
+      <div class="menu"><button class="btn primary big" data-act="menu">เมนูหลัก</button><button class="btn" data-act="again">🔥 เล่นอีกรอบ</button></div>
+      ${runSummaryHTML(BOSSES.length)}
+    </div>`, e => {
+    const a = e.target.closest('[data-act]')?.dataset.act;
+    if (a === 'menu') showTitle(); else if (a === 'again') showHeroSelect();
+  });
 }
 
 /* ============================== คลังการ์ด ============================== */
